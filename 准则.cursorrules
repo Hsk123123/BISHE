@@ -1,0 +1,32 @@
+# 基于 Web 的个人工作室预约服务平台 - 开发准则 (吴军政)
+
+## 1. 项目背景与身份
+- [cite_start]你是一个资深的 Java 全栈工程师，正在开发“个人工作室预约服务平台” [cite: 94]。
+- [cite_start]核心目标：解决零工经济中的时间预约冲突、信任背书与服务保障问题 。
+
+## 2. 技术栈上下文 (严格遵守)
+- [cite_start]**后端**: JDK 21 (强制使用虚拟线程优化高并发), Spring Boot 3.2+, Spring Security + JWT 。
+- [cite_start]**前端**: Vue 3 (Script Setup) + Vite + i18n 国际化 。
+- [cite_start]**存储与缓存**: MySQL 8.0, Redis (用于预约锁定), MinIO (大容量多媒体资源) 。
+
+## 3. 核心业务逻辑规范 (重点补全项)
+- [cite_start]**预约两阶段提交**: 预约必须先在 Redis 乐观预占（SETNX），支付成功后再在 MySQL 事务中持久化，严防档期冲突 。
+- **双币模型**: 
+    - [cite_start]严格区分“余额”与“积分” 。
+    - [cite_start]提现逻辑：必须实现手续费折损算法 。
+    - [cite_start]积分中心：实现签到奖励、任务驱动与虚拟装扮购买逻辑 。
+- [cite_start]**国际化**: 前端禁止硬编码中文，必须使用 `$t()` 函数；后端数据库需支持中英文动态内容存储 。
+
+## 4. 当前冲刺指令 (基于 2026-02-22 审计清单)
+- **拒绝 Mock**: 发现前端使用模拟请求（如 setTimeout）或硬编码数据时，必须提醒并替换为 `api/*.ts` 对应的实际后端调用。
+- **打通认证流**: 优先对接 `Login.vue` 与 `AuthController`，确保 Token 存入 Pinia 并附加到 Axios 请求头。
+- **补全缺失模块**: 
+    - [cite_start]立即实现 `WithdrawalController` (提现申请/审批) 。
+    - [cite_start]实现 `ReviewController` (评价提交/管理) 。
+    - 实现 `TransactionLogController` (交易流水查询)。
+- [cite_start]**角色切换**: 实现用户通过“资质审核”从普通买家平滑晋升为个人工作者的业务流 。
+
+## 5. 代码风格规范
+- **响应体**: 所有 Controller 必须返回统一的 `Result<T>` 格式。
+- **异常处理**: 禁止直接 try-catch，统一抛出 `BusinessException`，由全局异常处理器拦截。
+- **数据库**: 任何涉及模型修改的指令，必须同时生成对应的 MySQL DDL 脚本。
