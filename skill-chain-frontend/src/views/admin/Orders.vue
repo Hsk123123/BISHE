@@ -141,15 +141,24 @@ const orders = ref<any[]>([])
 
 const loadOrders = async () => {
   try {
+    const keyword = (searchForm.value.orderId || '').trim()
     const data = await getAdminOrderList({
       page: currentPage.value,
       size: pageSize.value,
-      status: searchForm.value.status ?? undefined
+      status: searchForm.value.status ?? undefined,
+      keyword: keyword || undefined
     }) as { records?: any[]; total?: number }
-    orders.value = data?.records ?? []
+    orders.value = (data?.records ?? []).map((r: any) => ({
+      ...r,
+      buyerName: r.buyerName ?? (r.buyerId ? `用户#${r.buyerId}` : '-'),
+      providerName: r.providerName ?? (r.providerId ? `服务者#${r.providerId}` : '-'),
+      skillTitle: r.skillTitle ?? (r.skillId ? `技能#${r.skillId}` : '-')
+    }))
     total.value = (data as any)?.total ?? orders.value.length
-  } catch {
+  } catch (err) {
     orders.value = []
+    total.value = 0
+    ElMessage.error((err as Error)?.message || '加载订单列表失败')
   }
 }
 

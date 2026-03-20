@@ -32,12 +32,18 @@ request.interceptors.response.use(
     }
   },
   (error) => {
+    const serverMessage =
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error?.message ||
+      'Network error'
+
     if (error.response?.status === 401) {
       useUserStore().clearToken()
       router.push('/login')
     }
-    showToast(error.response?.data?.message || 'Network error')
-    return Promise.reject(error)
+    showToast(serverMessage)
+    return Promise.reject(new Error(serverMessage))
   }
 )
 

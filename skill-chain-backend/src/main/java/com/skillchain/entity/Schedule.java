@@ -13,6 +13,8 @@ public class Schedule {
 
     private Long providerId;
 
+    private Long skillId;
+
     private LocalDate date;
 
     private String timeSlot;

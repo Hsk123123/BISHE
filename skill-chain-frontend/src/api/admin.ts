@@ -4,8 +4,23 @@ export const getAdminUserList = (params?: { page?: number; size?: number; keywor
   return request.get('/admin/user/list', { params })
 }
 
+export const createAdminUser = (params: {
+  username: string
+  password: string
+  phone: string
+  email?: string
+  role?: number
+  status?: number
+}) => {
+  return request.post('/admin/user/create', params)
+}
+
 export const updateUserRole = (userId: number | string, role: number) => {
   return request.put(`/admin/user/${userId}/role`, { role })
+}
+
+export const deleteAdminUser = (userId: number | string) => {
+  return request.delete(`/admin/user/${userId}`)
 }
 
 export const approveRealname = (userId: number | string) => {
@@ -28,7 +43,7 @@ export const rejectSkill = (skillId: number | string) => {
   return request.put(`/admin/skill/${skillId}/reject`)
 }
 
-export const getAdminOrderList = (params?: { page?: number; size?: number; status?: number }) => {
+export const getAdminOrderList = (params?: { page?: number; size?: number; status?: number; keyword?: string }) => {
   return request.get('/admin/order/list', { params })
 }
 

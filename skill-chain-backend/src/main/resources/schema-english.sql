@@ -200,3 +200,53 @@ INSERT INTO `system_config` (`config_key`, `config_value`, `description`) VALUES
 ('platform_commission_rate', '0.05', '平台佣金率'),
 ('withdrawal_fee_rate', '0.05', '提现手续费率'),
 ('point_to_coin_rate', '100', '积分兑换CNY挂钩币比例');
+
+-- =============================================================
+-- Compatibility patch: keep schema aligned with current entities
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS `withdrawal_request` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL,
+    `amount` DECIMAL(10,2) NOT NULL,
+    `fee` DECIMAL(10,2) DEFAULT 0.00,
+    `actual_amount` DECIMAL(10,2) NOT NULL,
+    `status` INT DEFAULT 0,
+    `bank_name` VARCHAR(50),
+    `bank_card` VARCHAR(50),
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `process_time` DATETIME,
+    PRIMARY KEY (`id`),
+    KEY `idx_user_id` (`user_id`),
+    KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE `wallet` ADD COLUMN IF NOT EXISTS `payment_password` VARCHAR(255);
+ALTER TABLE `wallet` ADD COLUMN IF NOT EXISTS `deleted` INT DEFAULT 0;
+
+ALTER TABLE `decoration` ADD COLUMN IF NOT EXISTS `deleted` INT DEFAULT 0;
+ALTER TABLE `decoration` ADD COLUMN IF NOT EXISTS `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+
+ALTER TABLE `skill` ADD COLUMN IF NOT EXISTS `unit_type` INT DEFAULT 1;
+ALTER TABLE `skill` ADD COLUMN IF NOT EXISTS `media_urls` TEXT;
+ALTER TABLE `skill` ADD COLUMN IF NOT EXISTS `deleted` INT DEFAULT 0;
+
+ALTER TABLE `schedule` ADD COLUMN IF NOT EXISTS `location` VARCHAR(255);
+ALTER TABLE `schedule` ADD COLUMN IF NOT EXISTS `deleted` INT DEFAULT 0;
+ALTER TABLE `schedule` ADD COLUMN IF NOT EXISTS `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+
+ALTER TABLE `order` ADD COLUMN IF NOT EXISTS `schedule_id` BIGINT;
+
+ALTER TABLE `transaction_log` ADD COLUMN IF NOT EXISTS `deleted` INT DEFAULT 0;
+ALTER TABLE `transaction_log` ADD COLUMN IF NOT EXISTS `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+
+ALTER TABLE `task` ADD COLUMN IF NOT EXISTS `deleted` INT DEFAULT 0;
+ALTER TABLE `task` ADD COLUMN IF NOT EXISTS `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+
+ALTER TABLE `user_task` ADD COLUMN IF NOT EXISTS `deleted` INT DEFAULT 0;
+
+ALTER TABLE `review` ADD COLUMN IF NOT EXISTS `images` TEXT;
+ALTER TABLE `review` ADD COLUMN IF NOT EXISTS `reply_content` VARCHAR(500);
+ALTER TABLE `review` ADD COLUMN IF NOT EXISTS `is_appeal` INT DEFAULT 0;
+ALTER TABLE `review` ADD COLUMN IF NOT EXISTS `deleted` INT DEFAULT 0;
+ALTER TABLE `review` ADD COLUMN IF NOT EXISTS `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
