@@ -62,6 +62,14 @@ public class UserService {
             throw new RuntimeException("用户不存在");
         }
 
+        if (newRole == null) {
+            throw new RuntimeException("角色参数不能为空");
+        }
+        // 仅允许普通用户与工作者之间切换，禁止通过该接口切管理员
+        if (newRole != 0 && newRole != 1) {
+            throw new RuntimeException("仅支持切换为普通用户或工作者角色");
+        }
+
         // 验证角色切换的合法性
         if (newRole == 1 && user.getRealNameStatus() != 2) {
             throw new RuntimeException("必须先通过实名认证才能切换为个人工作者角色");

@@ -2,6 +2,7 @@ package com.skillchain.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.skillchain.entity.Schedule;
+import com.skillchain.exception.BusinessException;
 import com.skillchain.mapper.ScheduleMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -37,7 +38,7 @@ public class ScheduleService {
                         .eq(Schedule::getDeleted, 0)
         );
         if (duplicate != null) {
-            throw new RuntimeException("Schedule already exists for this time slot");
+            throw new BusinessException("该时间段已被占用，请选择其他时间");
         }
 
         schedule.setProviderId(providerId);
@@ -53,10 +54,10 @@ public class ScheduleService {
     public void deleteSchedule(Long providerId, Long scheduleId) {
         Schedule existSchedule = scheduleMapper.selectById(scheduleId);
         if (existSchedule == null || Integer.valueOf(1).equals(existSchedule.getDeleted())) {
-            throw new RuntimeException("Schedule not found");
+            throw new BusinessException("时间段不存在");
         }
         if (!existSchedule.getProviderId().equals(providerId)) {
-            throw new RuntimeException("No permission");
+            throw new BusinessException(403, "无权操作");
         }
 
         scheduleMapper.deleteById(scheduleId);
@@ -79,16 +80,16 @@ public class ScheduleService {
     public void bookSchedule(Long scheduleId) {
         Schedule schedule = scheduleMapper.selectById(scheduleId);
         if (schedule == null || Integer.valueOf(1).equals(schedule.getDeleted())) {
-            throw new RuntimeException("Schedule not found");
+            throw new BusinessException("时间段不存在");
         }
         if (schedule.getStatus() != 0) {
-            throw new RuntimeException("Time slot already booked");
+            throw new BusinessException("该时间段已被预约");
         }
 
         schedule.setStatus(1);
         int rows = scheduleMapper.updateById(schedule);
         if (rows == 0) {
-            throw new RuntimeException("Book schedule failed");
+            throw new BusinessException("预约失败，请稍后重试");
         }
     }
 
@@ -120,16 +121,16 @@ public class ScheduleService {
     public void confirmLockSchedule(Long scheduleId) {
         Schedule schedule = scheduleMapper.selectById(scheduleId);
         if (schedule == null || Integer.valueOf(1).equals(schedule.getDeleted())) {
-            throw new RuntimeException("Schedule not found");
+            throw new BusinessException("时间段不存在");
         }
         if (schedule.getStatus() != 2) {
-            throw new RuntimeException("Schedule is not in pre-locked status");
+            throw new BusinessException("时间段状态异常");
         }
 
         schedule.setStatus(1);
         int rows = scheduleMapper.updateById(schedule);
         if (rows == 0) {
-            throw new RuntimeException("Confirm schedule failed");
+            throw new BusinessException("确认预约失败，请稍后重试");
         }
     }
 
@@ -137,7 +138,7 @@ public class ScheduleService {
     public void releaseSchedule(Long scheduleId) {
         Schedule schedule = scheduleMapper.selectById(scheduleId);
         if (schedule == null || Integer.valueOf(1).equals(schedule.getDeleted())) {
-            throw new RuntimeException("Schedule not found");
+            throw new BusinessException("时间段不存在");
         }
 
         schedule.setStatus(0);
@@ -149,7 +150,7 @@ public class ScheduleService {
                 new LambdaQueryWrapper<Schedule>()
                         .eq(Schedule::getProviderId, providerId)
                         .eq(Schedule::getDate, LocalDate.parse(date))
-                        .eq(Schedule::getStatus, 0)
+                        .in(Schedule::getStatus, 0, 1, 2)
                         .eq(Schedule::getDeleted, 0)
                         .orderByAsc(Schedule::getTimeSlot)
         );

@@ -122,6 +122,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/admin/Users.vue')
       },
       {
+        path: 'categories',
+        name: 'AdminCategories',
+        component: () => import('@/views/admin/Categories.vue')
+      },
+      {
         path: 'skills',
         name: 'AdminSkills',
         component: () => import('@/views/admin/Skills.vue')
@@ -167,11 +172,41 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
-  if (to.path.startsWith('/admin') && !token) {
-    next('/login')
-  } else {
-    next()
+  const rawUserInfo = localStorage.getItem('userInfo')
+  let role = 0
+  if (rawUserInfo) {
+    try {
+      role = JSON.parse(rawUserInfo)?.role ?? 0
+    } catch {
+      role = 0
+    }
   }
+
+  const workerOnlyPaths = ['/publish-skill', '/my-skills', '/skill-orders', '/earnings']
+  const isWorkerOnlyRoute = workerOnlyPaths.includes(to.path)
+  const isWorkerApplicationRoute = to.path === '/worker-application'
+
+  if (!token && (to.path.startsWith('/admin') || isWorkerOnlyRoute || isWorkerApplicationRoute)) {
+    next('/login')
+    return
+  }
+
+  if (to.path.startsWith('/admin') && role !== 2) {
+    next('/home')
+    return
+  }
+
+  if (isWorkerOnlyRoute && role !== 1 && role !== 2) {
+    next('/profile')
+    return
+  }
+
+  if (isWorkerApplicationRoute && role !== 0) {
+    next('/profile')
+    return
+  }
+
+  next()
 })
 
 export default router

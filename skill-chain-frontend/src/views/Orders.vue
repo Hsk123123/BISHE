@@ -1,310 +1,430 @@
 <template>
   <div class="orders-container">
     <van-nav-bar title="我的订单" fixed />
-    
-    <van-tabs v-model:active="activeTab" animated swipeable>
-      <van-tab title="全部" name="all">
-        <div class="order-list" v-if="allOrders.length > 0">
-          <div 
-            v-for="order in allOrders" 
-            :key="order.id" 
-            class="order-card"
-            @click="showOrderDetail(order)"
-          >
-            <div class="order-header">
-              <div class="order-id">
-                <span class="label">订单号</span>
-                <span class="value">{{ order.orderNo }}</span>
+
+    <section class="orders-hero">
+      <div class="hero-content">
+        <div class="hero-badge">My Orders</div>
+        <h1>订单中心</h1>
+        <p>查看服务进度、联系服务者、管理你的预约订单</p>
+      </div>
+      <div class="hero-glow hero-glow-1"></div>
+      <div class="hero-glow hero-glow-2"></div>
+    </section>
+
+    <section class="tabs-shell">
+      <van-tabs v-model:active="activeTab" animated swipeable class="orders-tabs">
+        <van-tab title="全部" name="all">
+          <div v-if="orderLoading" class="state-card">
+            <van-loading size="24px" vertical>加载中...</van-loading>
+          </div>
+
+          <div v-else-if="allOrders.length > 0" class="order-list">
+            <div
+              v-for="order in allOrders"
+              :key="order.id"
+              class="order-card"
+              @click="showOrderDetail(order)"
+            >
+              <div class="order-header">
+                <div class="order-id">
+                  <span class="label">订单号</span>
+                  <span class="value">{{ order.orderNo }}</span>
+                </div>
+                <van-tag round :type="getStatusType(order.status)">
+                  {{ getStatusText(order.status) }}
+                </van-tag>
               </div>
-              <van-tag :type="getStatusType(order.status)">{{ getStatusText(order.status) }}</van-tag>
-            </div>
-            
-            <div class="order-content">
-              <div class="skill-info">
+
+              <div class="order-content">
                 <div class="skill-header">
-                  <h3 class="skill-title">{{ order.skillTitle }}</h3>
-                  <span class="skill-price">¥{{ order.price.toFixed(2) }}</span>
+                  <div class="skill-text">
+                    <h3 class="skill-title">{{ order.skillTitle }}</h3>
+                    <p class="skill-desc">{{ order.description }}</p>
+                  </div>
+                  <div class="skill-price-block">
+                    <span class="skill-price">¥{{ order.price.toFixed(2) }}</span>
+                  </div>
                 </div>
-                <div class="skill-desc">{{ order.description }}</div>
-                <div class="service-time">
-                  <van-icon name="clock-o" />
-                  <span>{{ order.serviceDate }} {{ order.serviceTime }}</span>
+
+                <div class="meta-row">
+                  <span class="meta-pill">
+                    <van-icon name="clock-o" />
+                    {{ order.serviceDate }} {{ order.serviceTime }}
+                  </span>
+                </div>
+
+                <div class="worker-panel">
+                  <div class="worker-left">
+                    <van-image round width="42" height="42" :src="order.workerAvatar" />
+                    <div class="worker-detail">
+                      <span class="worker-name">{{ order.workerName }}</span>
+                      <span v-if="order.workerRating" class="worker-rating">
+                        评分 {{ order.workerRating }}
+                      </span>
+                    </div>
+                  </div>
+                  <van-button size="small" plain type="primary" round @click.stop="contactWorker(order)">
+                    联系
+                  </van-button>
                 </div>
               </div>
-              
-              <div class="worker-info">
-                <van-image round width="40" height="40" :src="order.workerAvatar" />
-                <div class="worker-detail">
-                  <span class="worker-name">{{ order.workerName }}</span>
-                  <span class="worker-rating">评分 {{ order.workerRating }}</span>
+
+              <div class="order-actions">
+                <template v-if="order.status === 0">
+                  <van-button size="small" round plain type="default" @click.stop="cancelOrder(order)">
+                    取消订单
+                  </van-button>
+                  <van-button size="small" round type="primary" @click.stop="payOrder(order)">
+                    立即支付
+                  </van-button>
+                </template>
+
+                <template v-else-if="order.status === 2 || order.status === 3">
+                  <van-button size="small" round plain type="danger" @click.stop="applyRefund(order)">
+                    申请退款
+                  </van-button>
+                  <van-button size="small" round type="primary" @click.stop="confirmService(order)">
+                    确认完成
+                  </van-button>
+                </template>
+
+                <template v-else-if="order.status === 4">
+                  <van-button size="small" round type="primary" @click.stop="rateOrder(order)">
+                    立即评价
+                  </van-button>
+                </template>
+
+                <template v-else-if="order.status === 5">
+                  <van-button size="small" round plain type="primary" @click.stop="viewReceipt(order)">
+                    查看收据
+                  </van-button>
+                  <van-button size="small" round plain type="default" @click.stop="rebook(order)">
+                    再次预约
+                  </van-button>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="empty-state">
+            <div class="empty-icon-wrap">
+              <van-icon name="orders-o" size="36" />
+            </div>
+            <p>暂无订单</p>
+            <van-button type="primary" round @click="goToBrowse">去浏览技能</van-button>
+          </div>
+        </van-tab>
+
+        <van-tab title="待支付" name="pending">
+          <div v-if="orderLoading" class="state-card">
+            <van-loading size="24px" vertical>加载中...</van-loading>
+          </div>
+
+          <div v-else-if="pendingOrders.length > 0" class="order-list">
+            <div
+              v-for="order in pendingOrders"
+              :key="order.id"
+              class="order-card"
+              @click="showOrderDetail(order)"
+            >
+              <div class="order-header">
+                <div class="order-id">
+                  <span class="label">订单号</span>
+                  <span class="value">{{ order.orderNo }}</span>
                 </div>
-                <van-button size="small" plain type="primary" @click.stop="contactWorker(order)">
-                  联系
+                <van-tag round type="warning">待支付</van-tag>
+              </div>
+
+              <div class="order-content">
+                <div class="skill-header">
+                  <div class="skill-text">
+                    <h3 class="skill-title">{{ order.skillTitle }}</h3>
+                    <p class="skill-desc">{{ order.description }}</p>
+                  </div>
+                  <div class="skill-price-block">
+                    <span class="skill-price">¥{{ order.price.toFixed(2) }}</span>
+                  </div>
+                </div>
+
+                <div class="meta-row">
+                  <span class="meta-pill">
+                    <van-icon name="clock-o" />
+                    {{ order.serviceDate }} {{ order.serviceTime }}
+                  </span>
+                </div>
+
+                <div class="worker-panel">
+                  <div class="worker-left">
+                    <van-image round width="42" height="42" :src="order.workerAvatar" />
+                    <div class="worker-detail">
+                      <span class="worker-name">{{ order.workerName }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="order-actions">
+                <van-button size="small" round plain type="default" @click.stop="cancelOrder(order)">
+                  取消订单
+                </van-button>
+                <van-button size="small" round type="primary" @click.stop="payOrder(order)">
+                  立即支付
                 </van-button>
               </div>
             </div>
-            
-            <div class="order-actions">
-              <template v-if="order.status === 0">
-                <van-button size="small" plain type="default" @click.stop="cancelOrder(order)">取消订单</van-button>
-                <van-button size="small" type="primary" @click.stop="payOrder(order)">立即支付</van-button>
-              </template>
-              <template v-else-if="order.status === 2 || order.status === 3">
-                <van-button size="small" plain type="danger" @click.stop="applyRefund(order)">申请退款</van-button>
-                <van-button size="small" type="primary" @click.stop="confirmService(order)">确认完成</van-button>
-              </template>
-              <template v-else-if="order.status === 4">
-                <van-button size="small" type="primary" @click.stop="rateOrder(order)">立即评价</van-button>
-              </template>
-              <template v-else-if="order.status === 5">
-                <van-button size="small" plain type="primary" @click.stop="viewReceipt(order)">查看收据</van-button>
-                <van-button size="small" plain type="default" @click.stop="rebook(order)">再次预约</van-button>
-              </template>
+          </div>
+
+          <div v-else class="empty-state">
+            <div class="empty-icon-wrap">
+              <van-icon name="clock-o" size="36" />
+            </div>
+            <p>暂无待支付订单</p>
+          </div>
+        </van-tab>
+
+        <van-tab title="待服务" name="service">
+          <div v-if="orderLoading" class="state-card">
+            <van-loading size="24px" vertical>加载中...</van-loading>
+          </div>
+
+          <div v-else-if="serviceOrders.length > 0" class="order-list">
+            <div
+              v-for="order in serviceOrders"
+              :key="order.id"
+              class="order-card"
+              @click="showOrderDetail(order)"
+            >
+              <div class="order-header">
+                <div class="order-id">
+                  <span class="label">订单号</span>
+                  <span class="value">{{ order.orderNo }}</span>
+                </div>
+                <van-tag round type="primary">{{ getStatusText(order.status) }}</van-tag>
+              </div>
+
+              <div class="order-content">
+                <div class="skill-header">
+                  <div class="skill-text">
+                    <h3 class="skill-title">{{ order.skillTitle }}</h3>
+                    <p class="skill-desc">{{ order.description }}</p>
+                  </div>
+                  <div class="skill-price-block">
+                    <span class="skill-price">¥{{ order.price.toFixed(2) }}</span>
+                  </div>
+                </div>
+
+                <div class="meta-row">
+                  <span class="meta-pill">
+                    <van-icon name="clock-o" />
+                    {{ order.serviceDate }} {{ order.serviceTime }}
+                  </span>
+                </div>
+
+                <div class="worker-panel">
+                  <div class="worker-left">
+                    <van-image round width="42" height="42" :src="order.workerAvatar" />
+                    <div class="worker-detail">
+                      <span class="worker-name">{{ order.workerName }}</span>
+                      <span v-if="order.workerRating" class="worker-rating">
+                        评分 {{ order.workerRating }}
+                      </span>
+                    </div>
+                  </div>
+                  <van-button size="small" round plain type="primary" @click.stop="contactWorker(order)">
+                    联系
+                  </van-button>
+                </div>
+
+                <div class="progress-bar">
+                  <div class="progress-track">
+                    <div class="progress-fill" :style="{ width: getProgressWidth(order.status) }"></div>
+                  </div>
+                  <div class="progress-labels">
+                    <span :class="{ active: order.status >= 1 }">待接单</span>
+                    <span :class="{ active: order.status >= 2 }">已接单</span>
+                    <span :class="{ active: order.status >= 3 }">服务中</span>
+                    <span :class="{ active: order.status >= 4 }">待确认</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="order-actions">
+                <van-button size="small" round plain type="danger" @click.stop="applyRefund(order)">
+                  申请退款
+                </van-button>
+                <van-button size="small" round type="primary" @click.stop="confirmService(order)">
+                  确认完成
+                </van-button>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div v-else class="empty-state">
-          <van-icon name="orders-o" size="64px" color="#ccc" />
-          <p>暂无订单</p>
-          <van-button type="primary" @click="goToBrowse">去浏览技能</van-button>
-        </div>
-      </van-tab>
-      
-      <van-tab title="待支付" name="pending">
-        <div class="order-list" v-if="pendingOrders.length > 0">
-          <div 
-            v-for="order in pendingOrders" 
-            :key="order.id" 
-            class="order-card"
-            @click="showOrderDetail(order)"
-          >
-            <div class="order-header">
-              <div class="order-id">
-                <span class="label">订单号</span>
-                <span class="value">{{ order.orderNo }}</span>
-              </div>
-              <van-tag type="warning">待支付</van-tag>
+
+          <div v-else class="empty-state">
+            <div class="empty-icon-wrap">
+              <van-icon name="service-o" size="36" />
             </div>
-            
-            <div class="order-content">
-              <div class="skill-info">
-                <div class="skill-header">
-                  <h3 class="skill-title">{{ order.skillTitle }}</h3>
-                  <span class="skill-price">¥{{ order.price.toFixed(2) }}</span>
-                </div>
-                <div class="skill-desc">{{ order.description }}</div>
-                <div class="service-time">
-                  <van-icon name="clock-o" />
-                  <span>{{ order.serviceDate }} {{ order.serviceTime }}</span>
-                </div>
-              </div>
-              
-              <div class="worker-info">
-                <van-image round width="40" height="40" :src="order.workerAvatar" />
-                <div class="worker-detail">
-                  <span class="worker-name">{{ order.workerName }}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div class="order-actions">
-              <van-button size="small" plain type="default" @click.stop="cancelOrder(order)">取消订单</van-button>
-              <van-button size="small" type="primary" @click.stop="payOrder(order)">立即支付</van-button>
-            </div>
+            <p>暂无待服务订单</p>
           </div>
-        </div>
-        <div v-else class="empty-state">
-          <van-icon name="clock-o" size="64px" color="#ccc" />
-          <p>暂无待支付订单</p>
-        </div>
-      </van-tab>
-      
-      <van-tab title="待服务" name="service">
-        <div class="order-list" v-if="serviceOrders.length > 0">
-          <div 
-            v-for="order in serviceOrders" 
-            :key="order.id" 
-            class="order-card"
-            @click="showOrderDetail(order)"
-          >
-            <div class="order-header">
-              <div class="order-id">
-                <span class="label">订单号</span>
-                <span class="value">{{ order.orderNo }}</span>
-              </div>
-              <van-tag type="primary">{{ getStatusText(order.status) }}</van-tag>
-            </div>
-            
-            <div class="order-content">
-              <div class="skill-info">
-                <div class="skill-header">
-                  <h3 class="skill-title">{{ order.skillTitle }}</h3>
-                  <span class="skill-price">¥{{ order.price.toFixed(2) }}</span>
-                </div>
-                <div class="skill-desc">{{ order.description }}</div>
-                <div class="service-time">
-                  <van-icon name="clock-o" />
-                  <span>{{ order.serviceDate }} {{ order.serviceTime }}</span>
-                </div>
-              </div>
-              
-              <div class="worker-info">
-                <van-image round width="40" height="40" :src="order.workerAvatar" />
-                <div class="worker-detail">
-                  <span class="worker-name">{{ order.workerName }}</span>
-                  <span class="worker-rating">评分 {{ order.workerRating }}</span>
-                </div>
-                <van-button size="small" plain type="primary" @click.stop="contactWorker(order)">联系</van-button>
-              </div>
-            </div>
-            
-            <div class="progress-bar">
-              <div class="progress-track">
-                <div class="progress-fill" :style="{ width: getProgressWidth(order.status) }"></div>
-              </div>
-              <div class="progress-labels">
-                <span :class="{ active: order.status >= 1 }">待接单</span>
-                <span :class="{ active: order.status >= 2 }">已接单</span>
-                <span :class="{ active: order.status >= 3 }">服务中</span>
-                <span :class="{ active: order.status >= 4 }">待确认</span>
-              </div>
-            </div>
-            
-            <div class="order-actions">
-              <van-button size="small" plain type="danger" @click.stop="applyRefund(order)">申请退款</van-button>
-              <van-button size="small" type="primary" @click.stop="confirmService(order)">确认完成</van-button>
-            </div>
+        </van-tab>
+
+        <van-tab title="已完成" name="completed">
+          <div v-if="orderLoading" class="state-card">
+            <van-loading size="24px" vertical>加载中...</van-loading>
           </div>
-        </div>
-        <div v-else class="empty-state">
-          <van-icon name="service" size="64px" color="#ccc" />
-          <p>暂无待服务订单</p>
-        </div>
-      </van-tab>
-      
-      <van-tab title="已完成" name="completed">
-        <div class="order-list" v-if="completedOrders.length > 0">
-          <div 
-            v-for="order in completedOrders" 
-            :key="order.id" 
-            class="order-card"
-            @click="showOrderDetail(order)"
-          >
-            <div class="order-header">
-              <div class="order-id">
-                <span class="label">订单号</span>
-                <span class="value">{{ order.orderNo }}</span>
+
+          <div v-else-if="completedOrders.length > 0" class="order-list">
+            <div
+              v-for="order in completedOrders"
+              :key="order.id"
+              class="order-card"
+              @click="showOrderDetail(order)"
+            >
+              <div class="order-header">
+                <div class="order-id">
+                  <span class="label">订单号</span>
+                  <span class="value">{{ order.orderNo }}</span>
+                </div>
+                <van-tag round type="success">{{ getStatusText(order.status) }}</van-tag>
               </div>
-              <van-tag type="success">{{ getStatusText(order.status) }}</van-tag>
-            </div>
-            
-            <div class="order-content">
-              <div class="skill-info">
+
+              <div class="order-content">
                 <div class="skill-header">
-                  <h3 class="skill-title">{{ order.skillTitle }}</h3>
-                  <span class="skill-price">¥{{ order.price.toFixed(2) }}</span>
+                  <div class="skill-text">
+                    <h3 class="skill-title">{{ order.skillTitle }}</h3>
+                    <p class="skill-desc">{{ order.description }}</p>
+                  </div>
+                  <div class="skill-price-block">
+                    <span class="skill-price">¥{{ order.price.toFixed(2) }}</span>
+                  </div>
                 </div>
-                <div class="skill-desc">{{ order.description }}</div>
-                <div class="service-time">
-                  <van-icon name="clock-o" />
-                  <span>{{ order.serviceDate }} {{ order.serviceTime }}</span>
+
+                <div class="meta-row">
+                  <span class="meta-pill">
+                    <van-icon name="clock-o" />
+                    {{ order.serviceDate }} {{ order.serviceTime }}
+                  </span>
                 </div>
+
                 <div v-if="order.rating" class="rating-info">
                   <van-rate readonly :model-value="order.rating" size="14px" color="#ff976a" />
                   <span class="rating-text">{{ order.rating }}分</span>
                 </div>
-              </div>
-              
-              <div class="worker-info">
-                <van-image round width="40" height="40" :src="order.workerAvatar" />
-                <div class="worker-detail">
-                  <span class="worker-name">{{ order.workerName }}</span>
+
+                <div class="worker-panel">
+                  <div class="worker-left">
+                    <van-image round width="42" height="42" :src="order.workerAvatar" />
+                    <div class="worker-detail">
+                      <span class="worker-name">{{ order.workerName }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            <div class="order-actions">
-              <van-button size="small" plain type="primary" @click.stop="viewReceipt(order)">查看收据</van-button>
-              <van-button size="small" plain type="default" @click.stop="rebook(order)">再次预约</van-button>
+
+              <div class="order-actions">
+                <van-button size="small" round plain type="primary" @click.stop="viewReceipt(order)">
+                  查看收据
+                </van-button>
+                <van-button size="small" round plain type="default" @click.stop="rebook(order)">
+                  再次预约
+                </van-button>
+              </div>
             </div>
           </div>
-        </div>
-        <div v-else class="empty-state">
-          <van-icon name="checked" size="64px" color="#ccc" />
-          <p>暂无已完成订单</p>
-        </div>
-      </van-tab>
-      
-      <van-tab title="退款/取消" name="refund">
-        <div class="order-list" v-if="refundOrders.length > 0">
-          <div 
-            v-for="order in refundOrders" 
-            :key="order.id" 
-            class="order-card"
-            @click="showOrderDetail(order)"
-          >
-            <div class="order-header">
-              <div class="order-id">
-                <span class="label">订单号</span>
-                <span class="value">{{ order.orderNo }}</span>
-              </div>
-              <van-tag :type="order.status === 6 ? 'warning' : 'danger'">{{ getStatusText(order.status) }}</van-tag>
+
+          <div v-else class="empty-state">
+            <div class="empty-icon-wrap">
+              <van-icon name="checked" size="36" />
             </div>
-            
-            <div class="order-content">
-              <div class="skill-info">
-                <div class="skill-header">
-                  <h3 class="skill-title">{{ order.skillTitle }}</h3>
-                  <span class="skill-price">¥{{ order.price.toFixed(2) }}</span>
+            <p>暂无已完成订单</p>
+          </div>
+        </van-tab>
+
+        <van-tab title="退款/取消" name="refund">
+          <div v-if="orderLoading" class="state-card">
+            <van-loading size="24px" vertical>加载中...</van-loading>
+          </div>
+
+          <div v-else-if="refundOrders.length > 0" class="order-list">
+            <div
+              v-for="order in refundOrders"
+              :key="order.id"
+              class="order-card"
+              @click="showOrderDetail(order)"
+            >
+              <div class="order-header">
+                <div class="order-id">
+                  <span class="label">订单号</span>
+                  <span class="value">{{ order.orderNo }}</span>
                 </div>
-                <div class="skill-desc">{{ order.description }}</div>
+                <van-tag round :type="order.status === 6 ? 'warning' : 'danger'">
+                  {{ getStatusText(order.status) }}
+                </van-tag>
+              </div>
+
+              <div class="order-content">
+                <div class="skill-header">
+                  <div class="skill-text">
+                    <h3 class="skill-title">{{ order.skillTitle }}</h3>
+                    <p class="skill-desc">{{ order.description }}</p>
+                  </div>
+                  <div class="skill-price-block">
+                    <span class="skill-price">¥{{ order.price.toFixed(2) }}</span>
+                  </div>
+                </div>
+
                 <div v-if="order.refundReason" class="refund-reason">
                   <van-icon name="info-o" />
                   <span>{{ order.refundReason }}</span>
                 </div>
+
+                <div v-if="order.status === 6" class="refund-progress">
+                  <van-steps :active="1" active-icon="clock" inactive-icon="info">
+                    <van-step>申请退款</van-step>
+                    <van-step>审核中</van-step>
+                    <van-step>退款成功</van-step>
+                  </van-steps>
+                </div>
               </div>
             </div>
-            
-            <div v-if="order.status === 6" class="refund-progress">
-              <van-steps :active="1" active-icon="clock" inactive-icon="info">
-                <van-step>申请退款</van-step>
-                <van-step>审核中</van-step>
-                <van-step>退款成功</van-step>
-              </van-steps>
-            </div>
           </div>
-        </div>
-        <div v-else class="empty-state">
-          <van-icon name="revoke" size="64px" color="#ccc" />
-          <p>暂无退款/取消订单</p>
-        </div>
-      </van-tab>
-    </van-tabs>
 
-    <van-popup 
-      v-model:show="showDetailPopup" 
-      position="bottom" 
+          <div v-else class="empty-state">
+            <div class="empty-icon-wrap">
+              <van-icon name="revoke" size="36" />
+            </div>
+            <p>暂无退款/取消订单</p>
+          </div>
+        </van-tab>
+      </van-tabs>
+    </section>
+
+    <van-popup
+      v-model:show="showDetailPopup"
+      position="bottom"
       :style="{ height: '85%' }"
       round
     >
       <div class="order-detail-popup" v-if="selectedOrder">
         <div class="popup-header">
-          <h3>订单详情</h3>
+          <div>
+            <h3>订单详情</h3>
+            <p>查看当前订单的完整服务信息</p>
+          </div>
           <van-icon name="cross" @click="showDetailPopup = false" />
         </div>
-        
+
         <div class="popup-content">
-          <div class="detail-section">
+          <div class="detail-card">
             <div class="section-title">订单状态</div>
             <div class="status-row">
-              <van-tag :type="getStatusType(selectedOrder.status)" size="large">
+              <van-tag :type="getStatusType(selectedOrder.status)" size="large" round>
                 {{ getStatusText(selectedOrder.status) }}
               </van-tag>
             </div>
           </div>
-          
-          <div class="detail-section">
+
+          <div class="detail-card">
             <div class="section-title">服务信息</div>
             <div class="info-grid">
               <div class="info-item">
@@ -325,22 +445,26 @@
               </div>
             </div>
           </div>
-          
-          <div class="detail-section">
+
+          <div class="detail-card">
             <div class="section-title">服务者信息</div>
             <div class="worker-card">
-              <van-image round width="50" height="50" :src="selectedOrder.workerAvatar" />
-              <div class="worker-info">
-                <span class="name">{{ selectedOrder.workerName }}</span>
-                <span class="rating">评分 {{ selectedOrder.workerRating }}</span>
+              <div class="worker-left">
+                <van-image round width="50" height="50" :src="selectedOrder.workerAvatar" />
+                <div class="worker-info">
+                  <span class="name">{{ selectedOrder.workerName }}</span>
+                  <span v-if="selectedOrder.workerRating" class="rating">
+                    评分 {{ selectedOrder.workerRating }}
+                  </span>
+                </div>
               </div>
-              <van-button size="small" type="primary" @click="contactWorker(selectedOrder)">
+              <van-button size="small" type="primary" round @click="contactWorker(selectedOrder)">
                 联系
               </van-button>
             </div>
           </div>
-          
-          <div class="detail-section">
+
+          <div class="detail-card">
             <div class="section-title">订单信息</div>
             <div class="info-grid">
               <div class="info-item">
@@ -361,27 +485,42 @@
               </div>
             </div>
           </div>
-          
-          <div v-if="selectedOrder.remark" class="detail-section">
+
+          <div v-if="selectedOrder.remark" class="detail-card">
             <div class="section-title">备注信息</div>
             <p class="remark">{{ selectedOrder.remark }}</p>
           </div>
         </div>
-        
+
         <div class="popup-actions">
           <template v-if="selectedOrder.status === 0">
-            <van-button block plain type="default" @click="cancelOrder(selectedOrder)">取消订单</van-button>
-            <van-button block type="primary" @click="payOrder(selectedOrder)">立即支付</van-button>
+            <van-button block round plain type="default" @click="cancelOrder(selectedOrder)">
+              取消订单
+            </van-button>
+            <van-button block round type="primary" @click="payOrder(selectedOrder)">
+              立即支付
+            </van-button>
           </template>
+
           <template v-else-if="selectedOrder.status === 2 || selectedOrder.status === 3">
-            <van-button block plain type="danger" @click="applyRefund(selectedOrder)">申请退款</van-button>
-            <van-button block type="primary" @click="confirmService(selectedOrder)">确认完成</van-button>
+            <van-button block round plain type="danger" @click="applyRefund(selectedOrder)">
+              申请退款
+            </van-button>
+            <van-button block round type="primary" @click="confirmService(selectedOrder)">
+              确认完成
+            </van-button>
           </template>
+
           <template v-else-if="selectedOrder.status === 4">
-            <van-button block type="primary" @click="rateOrder(selectedOrder)">立即评价</van-button>
+            <van-button block round type="primary" @click="rateOrder(selectedOrder)">
+              立即评价
+            </van-button>
           </template>
+
           <template v-else>
-            <van-button block plain type="primary" @click="rebook(selectedOrder)">再次预约</van-button>
+            <van-button block round plain type="primary" @click="rebook(selectedOrder)">
+              再次预约
+            </van-button>
           </template>
         </div>
       </div>
@@ -454,7 +593,7 @@ interface Order {
   address: string
   workerName: string
   workerAvatar: string
-  workerRating: number
+  workerRating?: number
   status: number
   createTime: string
   payTime?: string
@@ -501,8 +640,8 @@ const loadOrders = async () => {
       serviceTime: r.timeSlot ?? '',
       address: r.location ?? '',
       workerName: r.workerName ?? '服务者',
-      workerAvatar: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg',
-      workerRating: r.workerRating ?? 5,
+      workerAvatar: r.workerAvatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg',
+      workerRating: r.workerRating ?? undefined,
       status: r.status ?? 0,
       createTime: r.createTime ?? '',
       payTime: r.payTime ?? '',
@@ -661,107 +800,203 @@ const rebook = (order: Order) => {
 
 <style scoped>
 .orders-container {
+  min-height: 100vh;
   padding-top: 46px;
   padding-bottom: 100px;
-  min-height: 100vh;
-  background: #f5f5f5;
+  background:
+    radial-gradient(circle at top right, rgba(102, 126, 234, 0.12), transparent 28%),
+    linear-gradient(180deg, #f6f8fc 0%, #eef2f7 100%);
+}
+
+.orders-hero {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 12px;
+  padding: 26px 16px 26px;
+  background: linear-gradient(135deg, #667eea 0%, #7b61ff 55%, #8f6bff 100%);
+  color: #fff;
+  border-bottom-left-radius: 24px;
+  border-bottom-right-radius: 24px;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+}
+
+.hero-badge {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(4px);
+}
+
+.orders-hero h1 {
+  margin: 0 0 8px;
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.orders-hero p {
+  margin: 0;
+  max-width: 280px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.hero-glow {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  filter: blur(4px);
+}
+
+.hero-glow-1 {
+  top: -8px;
+  right: -10px;
+  width: 120px;
+  height: 120px;
+}
+
+.hero-glow-2 {
+  right: 72px;
+  bottom: -26px;
+  width: 88px;
+  height: 88px;
+}
+
+.tabs-shell {
+  padding: 0 12px;
 }
 
 .order-list {
-  padding: 10px;
+  padding: 12px 0 4px;
 }
 
 .order-card {
-  background: white;
-  border-radius: 12px;
   margin-bottom: 12px;
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 24px rgba(31, 45, 61, 0.05);
 }
 
 .order-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 15px;
-  background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
+  gap: 10px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, #fafbff 0%, #f5f7fc 100%);
+  border-bottom: 1px solid #eef1f6;
 }
 
 .order-id .label {
-  color: #999;
-  font-size: 12px;
   margin-right: 8px;
+  font-size: 12px;
+  color: #98a0b3;
 }
 
 .order-id .value {
-  color: #333;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  color: #2a3142;
 }
 
 .order-content {
-  padding: 15px;
-}
-
-.skill-info {
-  margin-bottom: 12px;
+  padding: 15px 16px;
 }
 
 .skill-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 8px;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.skill-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .skill-title {
+  margin: 0 0 6px;
   font-size: 16px;
-  font-weight: 600;
-  color: #333;
-  margin: 0;
-  flex: 1;
-}
-
-.skill-price {
-  font-size: 18px;
-  font-weight: 600;
-  color: #ff976a;
-  margin-left: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #1f2330;
 }
 
 .skill-desc {
-  font-size: 13px;
-  color: #666;
-  margin-bottom: 8px;
-  line-height: 1.4;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #7a8193;
 }
 
-.service-time {
+.skill-price-block {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.skill-price {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ff976a;
+  line-height: 1.2;
+}
+
+.meta-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #999;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.worker-info {
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.08);
+  border-radius: 999px;
+}
+
+.worker-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #ebeff5;
+}
+
+.worker-left {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding-top: 12px;
-  border-top: 1px dashed #f0f0f0;
+  min-width: 0;
 }
 
 .worker-detail {
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 
 .worker-name {
-  display: block;
   font-size: 14px;
-  font-weight: 500;
-  color: #333;
+  font-weight: 600;
+  color: #2a3142;
 }
 
 .worker-rating {
@@ -770,44 +1005,56 @@ const rebook = (order: Order) => {
 }
 
 .progress-bar {
-  padding: 15px;
-  background: #fafafa;
-  border-top: 1px solid #f0f0f0;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f8faff;
 }
 
 .progress-track {
-  height: 4px;
-  background: #e0e0e0;
-  border-radius: 2px;
+  height: 5px;
   margin-bottom: 8px;
   overflow: hidden;
+  background: #e4e9f2;
+  border-radius: 999px;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-  border-radius: 2px;
+  background: linear-gradient(90deg, #667eea 0%, #7b61ff 100%);
+  border-radius: 999px;
   transition: width 0.3s ease;
 }
 
 .progress-labels {
   display: flex;
   justify-content: space-between;
+  gap: 6px;
   font-size: 11px;
-  color: #999;
+  color: #98a0b3;
 }
 
 .progress-labels span.active {
   color: #667eea;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .order-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding: 12px 15px;
-  border-top: 1px solid #f0f0f0;
+  padding: 12px 16px 15px;
+  border-top: 1px solid #eef1f6;
+}
+
+.state-card {
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
+  margin-top: 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 24px rgba(31, 45, 61, 0.05);
 }
 
 .empty-state {
@@ -815,23 +1062,40 @@ const rebook = (order: Order) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
-  color: #999;
+  gap: 12px;
+  padding: 42px 20px;
+  margin-top: 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 24px rgba(31, 45, 61, 0.05);
+  color: #9aa1b3;
+}
+
+.empty-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 66px;
+  height: 66px;
+  border-radius: 20px;
+  background: #f4f6fb;
 }
 
 .empty-state p {
-  margin: 15px 0;
+  margin: 0;
+  font-size: 14px;
 }
 
 .rating-info {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  margin: 10px 0 0;
 }
 
 .rating-text {
   font-size: 13px;
+  font-weight: 600;
   color: #ff976a;
 }
 
@@ -839,58 +1103,73 @@ const rebook = (order: Order) => {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  margin-top: 8px;
-  padding: 8px;
-  background: #fff7e6;
-  border-radius: 6px;
+  margin-top: 10px;
+  padding: 10px 12px;
   font-size: 12px;
+  line-height: 1.6;
   color: #ff976a;
+  background: #fff7e9;
+  border-radius: 12px;
 }
 
 .refund-progress {
-  padding: 15px;
+  margin-top: 12px;
+  padding: 12px 0 0;
 }
 
 .order-detail-popup {
   display: flex;
   flex-direction: column;
   height: 100%;
+  background: #f7f9fd;
 }
 
 .popup-header {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
-  padding: 15px;
-  border-bottom: 1px solid #f0f0f0;
+  gap: 12px;
+  padding: 16px 16px 14px;
+  background: #fff;
+  border-bottom: 1px solid #eef1f6;
 }
 
 .popup-header h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2330;
+}
+
+.popup-header p {
   margin: 0;
-  font-size: 17px;
+  font-size: 12px;
+  color: #8a90a2;
 }
 
 .popup-content {
   flex: 1;
   overflow-y: auto;
-  padding: 15px;
+  padding: 14px 14px 6px;
 }
 
-.detail-section {
-  margin-bottom: 20px;
+.detail-card {
+  margin-bottom: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(31, 45, 61, 0.04);
 }
 
 .section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
   margin-bottom: 12px;
-  padding-left: 10px;
-  border-left: 3px solid #667eea;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2330;
 }
 
 .status-row {
-  padding: 10px 0;
+  padding: 2px 0;
 }
 
 .info-grid {
@@ -902,47 +1181,53 @@ const rebook = (order: Order) => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 12px;
 }
 
 .info-item .label {
+  flex-shrink: 0;
   font-size: 13px;
-  color: #999;
+  color: #98a0b3;
 }
 
 .info-item .value {
-  font-size: 13px;
-  color: #333;
-  text-align: right;
   flex: 1;
-  margin-left: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: right;
+  color: #2a3142;
 }
 
 .info-item .value.price {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   color: #ff976a;
 }
 
 .worker-card {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   padding: 12px;
-  background: #f5f7fa;
-  border-radius: 8px;
+  border-radius: 14px;
+  background: #f7f9fd;
+}
+
+.worker-card .worker-left {
+  flex: 1;
 }
 
 .worker-card .worker-info {
-  flex: 1;
-  border: none;
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .worker-card .name {
-  display: block;
   font-size: 14px;
-  font-weight: 500;
-  color: #333;
+  font-weight: 600;
+  color: #2a3142;
 }
 
 .worker-card .rating {
@@ -951,21 +1236,22 @@ const rebook = (order: Order) => {
 }
 
 .remark {
-  font-size: 13px;
-  color: #666;
-  line-height: 1.6;
   margin: 0;
-  padding: 10px;
-  background: #fafafa;
-  border-radius: 6px;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #5f6678;
+  background: #f7f9fd;
+  border-radius: 12px;
 }
 
 .popup-actions {
-  padding: 15px;
-  border-top: 1px solid #f0f0f0;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 15px;
+  background: #fff;
+  border-top: 1px solid #eef1f6;
 }
 
 .rating-form,
@@ -982,6 +1268,41 @@ const rebook = (order: Order) => {
 
 .rating-stars .label {
   font-size: 14px;
-  color: #333;
+  color: #2a3142;
+}
+
+:deep(.van-nav-bar) {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+}
+
+:deep(.van-nav-bar__title) {
+  font-weight: 700;
+  color: #1f2330;
+}
+
+:deep(.orders-tabs .van-tabs__wrap) {
+  margin-bottom: 8px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 8px 20px rgba(31, 45, 61, 0.04);
+}
+
+:deep(.orders-tabs .van-tab) {
+  color: #7c8498;
+  font-size: 13px;
+}
+
+:deep(.orders-tabs .van-tab--active) {
+  color: #667eea;
+  font-weight: 700;
+}
+
+:deep(.orders-tabs .van-tabs__line) {
+  background: linear-gradient(90deg, #667eea 0%, #7b61ff 100%);
+}
+
+:deep(.van-step__title) {
+  font-size: 12px;
 }
 </style>

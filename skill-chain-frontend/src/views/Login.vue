@@ -5,25 +5,25 @@
       <div class="circle circle-2"></div>
       <div class="circle circle-3"></div>
     </div>
-    
+
     <div class="login-content">
       <div class="logo-section">
         <div class="logo-icon">
           <svg viewBox="0 0 100 100" class="logo-svg">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="2"/>
-            <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" stroke-width="2"/>
-            <circle cx="50" cy="50" r="25" fill="none" stroke="currentColor" stroke-width="2"/>
-            <circle cx="50" cy="50" r="8" fill="currentColor"/>
+            <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="2" />
+            <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" stroke-width="2" />
+            <circle cx="50" cy="50" r="25" fill="none" stroke="currentColor" stroke-width="2" />
+            <circle cx="50" cy="50" r="8" fill="currentColor" />
           </svg>
         </div>
         <h1 class="platform-name">{{ $t('common.platformName') }}</h1>
         <p class="platform-slogan">{{ $t('common.platformSlogan') }}</p>
       </div>
 
-      <van-form @submit="onSubmit" class="login-form">
+      <van-form class="login-form">
         <van-cell-group inset class="form-group">
           <van-field
-            v-model="username"
+            v-model.trim="username"
             name="username"
             :label="$t('login.username')"
             :placeholder="$t('login.usernamePlaceholder')"
@@ -42,6 +42,7 @@
             size="large"
             :rules="[{ required: true, message: t('login.passwordRequired') }]"
             class="custom-field"
+            @keyup.enter="onSubmit"
           />
         </van-cell-group>
 
@@ -49,17 +50,19 @@
           <van-checkbox v-model="rememberPassword" shape="round" icon-size="16px">
             {{ $t('login.rememberPassword') }}
           </van-checkbox>
-          <span class="forgot-password" @click="goToForgotPassword">{{ $t('login.forgotPassword') }}</span>
+          <span class="forgot-password" @click="goToForgotPassword">
+            {{ $t('login.forgotPassword') }}
+          </span>
         </div>
 
         <div class="submit-section">
-          <van-button 
-            round 
-            block 
-            type="primary" 
-            native-type="submit" 
+          <van-button
+            round
+            block
+            type="primary"
             :loading="loading"
             class="submit-button"
+            @click="onSubmit"
           >
             {{ $t('login.submit') }}
           </van-button>
@@ -67,10 +70,12 @@
 
         <div class="register-section">
           <span class="register-text">{{ $t('login.noAccount') }}</span>
-          <span class="register-link" @click="goToRegister">{{ $t('login.registerNow') }}</span>
+          <span class="register-link" @click="goToRegister">
+            {{ $t('login.registerNow') }}
+          </span>
         </div>
       </van-form>
-      
+
       <div class="footer-info">
         <p>{{ $t('login.agreeTerms') }}</p>
         <p>
@@ -84,38 +89,93 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { showToast, showSuccessToast } from 'vant'
 import { useUserStore } from '@/store/user'
 import { login } from '@/api/user'
 
+interface LoginResponse {
+  token: string
+  user: {
+    role: number
+    [key: string]: unknown
+  }
+}
+
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string
+    }
+  }
+  message?: string
+}
+
+const ROLE_ADMIN = 2
+
 const router = useRouter()
 const userStore = useUserStore()
 const { t } = useI18n()
+
 const loading = ref(false)
 const username = ref('')
 const password = ref('')
 const rememberPassword = ref(false)
 
+onMounted(() => {
+  const savedUsername = localStorage.getItem('rememberedUsername')
+  if (savedUsername) {
+    username.value = savedUsername
+    rememberPassword.value = true
+  }
+})
+
 const onSubmit = async () => {
+  const trimmedUsername = username.value.trim()
+
+  if (!trimmedUsername) {
+    showToast(t('login.usernameRequired'))
+    return
+  }
+
+  if (!password.value) {
+    showToast(t('login.passwordRequired'))
+    return
+  }
+
+  if (loading.value) {
+    return
+  }
+
   loading.value = true
   try {
-    const data = await login({ username: username.value, password: password.value }) as { token: string; user: { role: number } }
+    const data = await login({
+      username: trimmedUsername,
+      password: password.value
+    }) as LoginResponse
+
     userStore.setToken(data.token)
     userStore.setUserInfo(data.user)
+
+    if (rememberPassword.value) {
+      localStorage.setItem('rememberedUsername', trimmedUsername)
+    } else {
+      localStorage.removeItem('rememberedUsername')
+    }
+
     showSuccessToast(t('login.success'))
 
     const roleNum = data.user?.role ?? 0
-    const isAdmin = roleNum === 2
-    if (isAdmin) {
-      router.push('/admin/dashboard')
+    if (roleNum === ROLE_ADMIN) {
+      router.replace('/admin/dashboard')
     } else {
-      router.push('/home')
+      router.replace('/home')
     }
   } catch (error) {
-    showToast(t('login.failed'))
+    const err = error as ApiError
+    showToast(err?.response?.data?.message || err?.message || t('login.failed'))
   } finally {
     loading.value = false
   }
@@ -180,8 +240,12 @@ const goToForgotPassword = () => {
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(180deg); }
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(180deg);
+  }
 }
 
 .login-content {
@@ -223,8 +287,12 @@ const goToForgotPassword = () => {
 }
 
 @keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .platform-name {
@@ -371,7 +439,7 @@ const goToForgotPassword = () => {
   .login-content {
     padding: 16px;
   }
-  
+
   .platform-name {
     font-size: 28px;
   }

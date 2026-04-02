@@ -51,6 +51,20 @@ export const getAdminOrderDetail = (orderId: number | string) => {
   return request.get(`/admin/order/${orderId}`)
 }
 
+export const getAdminFinanceOverview = () => {
+  return request.get('/admin/finance/overview')
+}
+
+export const getAdminFinanceTransactions = (params?: {
+  page?: number
+  size?: number
+  type?: string
+  startDate?: string
+  endDate?: string
+}) => {
+  return request.get('/admin/finance/transactions', { params })
+}
+
 export const arbitrateOrder = (orderId: number | string, params: { result: number; remark?: string }) => {
   return request.post(`/admin/order/${orderId}/arbitrate`, params)
 }

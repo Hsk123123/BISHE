@@ -11,30 +11,66 @@ export interface RegisterParams {
   phone: string
 }
 
-export const login = (params: LoginParams) => {
+export interface LoginResponse {
+  token: string
+  user: {
+    role: number
+    [key: string]: unknown
+  }
+}
+
+export interface RegisterResponse {
+  userId?: number
+  username?: string
+  [key: string]: unknown
+}
+
+export interface UserInfoResponse {
+  userId?: number
+  username?: string
+  role?: number
+  phone?: string
+  avatar?: string
+  nickname?: string
+  [key: string]: unknown
+}
+
+export interface WorkerApplicationResponse {
+  applicationId?: number
+  status?: number
+  reason?: string
+  createdAt?: string
+  [key: string]: unknown
+}
+
+export const login = (params: LoginParams): Promise<LoginResponse> => {
   return request.post('/auth/login', params)
 }
 
-export const register = (params: RegisterParams) => {
+export const register = (params: RegisterParams): Promise<RegisterResponse> => {
   return request.post('/auth/register', params)
 }
 
-export const getUserInfo = () => {
+export const getUserInfo = (): Promise<UserInfoResponse> => {
   return request.get('/auth/info')
 }
 
-export const updateProfile = (params: any) => {
+export const updateProfile = (params: Record<string, unknown>): Promise<UserInfoResponse> => {
   return request.put('/auth/profile', params)
 }
 
-export const submitWorkerApplication = (params: any) => {
+export const submitWorkerApplication = (
+  params: Record<string, unknown>
+): Promise<WorkerApplicationResponse> => {
   return request.post('/user/worker-application/submit', params)
 }
 
-export const getMyWorkerApplication = () => {
+export const getMyWorkerApplication = (): Promise<WorkerApplicationResponse> => {
   return request.get('/user/worker-application/my')
 }
 
-export const cancelMyWorkerApplication = (applicationId: number | string) => {
+export const cancelMyWorkerApplication = (
+  applicationId: number | string
+): Promise<WorkerApplicationResponse> => {
   return request.put(`/user/worker-application/${applicationId}/cancel`)
 }

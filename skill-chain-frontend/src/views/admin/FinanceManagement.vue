@@ -102,8 +102,8 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="scope">
-            <el-tag :type="scope.row.status === 'completed' ? 'success' : 'warning'">
-              {{ scope.row.status === 'completed' ? '已完成' : '处理中' }}
+            <el-tag :type="scope.row.status === 'completed' ? 'success' : scope.row.status === 'rejected' ? 'danger' : 'warning'">
+              {{ scope.row.status === 'completed' ? '已完成' : scope.row.status === 'rejected' ? '已拒绝' : '处理中' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -217,12 +217,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAdminFinanceOverview, getAdminFinanceTransactions } from '@/api/admin'
 import { getAdminWithdrawalList, approveWithdrawal, rejectWithdrawal } from '@/api/withdrawal'
 
 interface Transaction {
-  transactionId: number
+  transactionId: string
   type: string
   orderId?: number
   userName: string
@@ -250,17 +251,17 @@ interface WithdrawalRequest {
   remark?: string
 }
 
-const todayRevenue = ref(2580.00)
-const monthRevenue = ref(85600.00)
-const monthOrders = ref(342)
-const pendingWithdrawals = ref(12800.00)
-const pendingCount = ref(8)
-const totalRevenue = ref(1256800.00)
-const totalOrders = ref(4521)
+const todayRevenue = ref(0)
+const monthRevenue = ref(0)
+const monthOrders = ref(0)
+const pendingWithdrawals = ref(0)
+const pendingCount = ref(0)
+const totalRevenue = ref(0)
+const totalOrders = ref(0)
 
 const currentPage = ref(1)
 const pageSize = ref(10)
-const total = ref(200)
+const total = ref(0)
 const dateRange = ref<[Date, Date] | null>(null)
 const filterType = ref('')
 const withdrawalDialogVisible = ref(false)
@@ -277,19 +278,12 @@ const currentWithdrawal = ref<WithdrawalRequest>({
   createTime: ''
 })
 
-const transactions = ref<Transaction[]>([
-  { transactionId: 1001, type: 'order', orderId: 2001, userName: '张三', providerName: '张阿姨', amount: 100.00, platformFee: 10.00, actualAmount: 90.00, status: 'completed', createTime: '2024-01-15 14:30:25' },
-  { transactionId: 1002, type: 'order', orderId: 2002, userName: '李四', providerName: '李师傅', amount: 50.00, platformFee: 5.00, actualAmount: 45.00, status: 'completed', createTime: '2024-01-15 13:20:15' },
-  { transactionId: 1003, type: 'withdrawal', userName: '张阿姨', amount: 500.00, platformFee: 0, status: 'completed', createTime: '2024-01-15 12:00:00' },
-  { transactionId: 1004, type: 'order', orderId: 2003, userName: '王五', providerName: '王设计师', amount: 200.00, platformFee: 20.00, actualAmount: 180.00, status: 'completed', createTime: '2024-01-15 11:45:30' },
-  { transactionId: 1005, type: 'refund', orderId: 2004, userName: '赵六', providerName: '赵老师', amount: 150.00, platformFee: 0, status: 'completed', createTime: '2024-01-15 10:30:00' },
-  { transactionId: 1006, type: 'order', orderId: 2005, userName: '钱七', providerName: '孙老师', amount: 80.00, platformFee: 8.00, actualAmount: 72.00, status: 'pending', createTime: '2024-01-15 09:15:45' },
-  { transactionId: 1007, type: 'order', orderId: 2006, userName: '周八', providerName: '周师傅', amount: 120.00, platformFee: 12.00, actualAmount: 108.00, status: 'completed', createTime: '2024-01-15 08:00:20' }
-])
+const transactions = ref<Transaction[]>([])
 
 const withdrawalRequests = ref<WithdrawalRequest[]>([])
-
-onMounted(() => loadWithdrawals())
+watch([currentPage, pageSize], () => {
+  loadTransactions()
+})
 
 const getTypeTag = (type: string) => {
   const tags: Record<string, string> = {
@@ -334,16 +328,116 @@ const getWithdrawalStatusText = (status: string) => {
 }
 
 const handleFilter = () => {
+  currentPage.value = 1
+  loadTransactions()
   ElMessage.success('筛选成功')
 }
 
 const exportData = () => {
+  if (!transactions.value.length) {
+    ElMessage.warning('暂无可导出数据')
+    return
+  }
+  const headers = ['交易ID', '类型', '关联订单', '用户', '服务者', '金额', '平台服务费', '实际金额', '状态', '交易时间']
+  const lines = transactions.value.map((row) => [
+    row.transactionId,
+    getTypeText(row.type),
+    row.orderId ?? '',
+    row.userName ?? '',
+    row.providerName ?? '',
+    row.amount ?? 0,
+    row.platformFee ?? 0,
+    row.actualAmount ?? 0,
+    row.status === 'completed' ? '已完成' : '处理中',
+    row.createTime ?? ''
+  ])
+  const csv = [headers, ...lines].map((line) => line.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `finance-transactions-${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
   ElMessage.success('导出成功')
 }
 
 const refreshWithdrawals = () => {
   loadWithdrawals()
   ElMessage.success('刷新成功')
+}
+
+const toNumber = (value: unknown) => {
+  const n = Number(value ?? 0)
+  return Number.isNaN(n) ? 0 : n
+}
+
+const formatDateToYmd = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const formatDateTime = (value: unknown) => {
+  if (!value) return ''
+  const text = String(value)
+  if (text.includes('T')) {
+    return text.replace('T', ' ').slice(0, 19)
+  }
+  return text
+}
+
+const loadOverview = async () => {
+  try {
+    const data = await getAdminFinanceOverview() as any
+    todayRevenue.value = toNumber(data?.todayRevenue)
+    monthRevenue.value = toNumber(data?.monthRevenue)
+    monthOrders.value = toNumber(data?.monthOrders)
+    pendingWithdrawals.value = toNumber(data?.pendingWithdrawals)
+    pendingCount.value = toNumber(data?.pendingCount)
+    totalRevenue.value = toNumber(data?.totalRevenue)
+    totalOrders.value = toNumber(data?.totalOrders)
+  } catch {
+    todayRevenue.value = 0
+    monthRevenue.value = 0
+    monthOrders.value = 0
+    pendingWithdrawals.value = 0
+    pendingCount.value = 0
+    totalRevenue.value = 0
+    totalOrders.value = 0
+  }
+}
+
+const loadTransactions = async () => {
+  try {
+    const params: any = {
+      page: currentPage.value,
+      size: pageSize.value,
+      type: filterType.value || undefined
+    }
+    if (dateRange.value) {
+      params.startDate = formatDateToYmd(dateRange.value[0])
+      params.endDate = formatDateToYmd(dateRange.value[1])
+    }
+    const data = await getAdminFinanceTransactions(params) as { records?: any[]; total?: number }
+    transactions.value = (data?.records ?? []).map((r: any) => ({
+      transactionId: String(r.transactionId ?? ''),
+      type: r.type ?? 'order',
+      orderId: r.orderId ?? undefined,
+      userName: r.userName ?? '-',
+      providerName: r.providerName ?? '-',
+      amount: toNumber(r.amount),
+      platformFee: toNumber(r.platformFee),
+      actualAmount: toNumber(r.actualAmount),
+      status: r.status ?? 'pending',
+      createTime: formatDateTime(r.createTime)
+    }))
+    total.value = toNumber(data?.total)
+  } catch {
+    transactions.value = []
+    total.value = 0
+  }
 }
 
 const loadWithdrawals = async () => {
@@ -418,6 +512,12 @@ const handleRejectWithdrawal = (row: WithdrawalRequest) => {
     }
   }).catch(() => ElMessage.info('已取消'))
 }
+
+onMounted(() => {
+  loadOverview()
+  loadTransactions()
+  loadWithdrawals()
+})
 </script>
 
 <style scoped>

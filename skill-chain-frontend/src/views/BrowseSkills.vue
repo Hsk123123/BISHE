@@ -1,14 +1,9 @@
 <template>
   <div class="browse-container">
-    <van-nav-bar 
-      title="浏览技能" 
-      left-arrow 
-      fixed 
-      @click-left="goBack"
-    >
+    <van-nav-bar title="浏览技能" left-arrow fixed @click-left="goBack">
       <template #right>
-        <van-icon 
-          :name="viewMode === 'grid' ? 'bars' : 'apps-o'" 
+        <van-icon
+          :name="viewMode === 'grid' ? 'bars' : 'apps-o'"
           size="20"
           @click="toggleViewMode"
         />
@@ -31,25 +26,21 @@
 
     <div class="filter-section">
       <div class="filter-tabs">
-        <div 
+        <div
           :class="['filter-tab', { active: activeFilter === 'hot' }]"
           @click="setFilter('hot')"
         >
           <van-icon name="fire" /> 热门
         </div>
-        <div 
+
+        <div
           :class="['filter-tab', { active: activeFilter === 'new' }]"
           @click="setFilter('new')"
         >
           <van-icon name="new-o" /> 最新
         </div>
-        <div 
-          :class="['filter-tab', { active: activeFilter === 'nearby' }]"
-          @click="setFilter('nearby')"
-        >
-          <van-icon name="location-o" /> 附近
-        </div>
-        <div 
+
+        <div
           :class="['filter-tab', { active: showFilterPopup }]"
           @click="showFilterPopup = true"
         >
@@ -59,26 +50,29 @@
       </div>
 
       <div class="sort-tabs">
-        <div 
+        <div
           :class="['sort-item', { active: sortBy === 'default' }]"
           @click="setSort('default')"
         >
           综合
         </div>
-        <div 
+
+        <div
           :class="['sort-item', { active: sortBy === 'sales' }]"
           @click="setSort('sales')"
         >
           销量
         </div>
-        <div 
+
+        <div
           :class="['sort-item', { active: sortBy === 'price' }]"
           @click="setSort('price')"
         >
           价格
           <van-icon :name="priceSortIcon" size="12px" />
         </div>
-        <div 
+
+        <div
           :class="['sort-item', { active: sortBy === 'rating' }]"
           @click="setSort('rating')"
         >
@@ -88,95 +82,124 @@
     </div>
 
     <div class="skills-content">
-      <div v-if="viewMode === 'grid'" class="skills-grid">
-        <div 
-          v-for="skill in filteredSkills" 
-          :key="skill.id" 
-          class="skill-card"
-          @click="goToSkill(skill.id)"
-        >
-          <div class="card-image">
-            <van-image :src="skill.image" fit="cover" />
-            <div class="skill-tag" v-if="skill.isHot">
-              <van-icon name="fire" size="10px" /> 热门
-            </div>
-            <div class="skill-tag new" v-else-if="skill.isNew">
-              <van-icon name="new-o" size="10px" /> 新人
-            </div>
-          </div>
-          <div class="card-content">
-            <h4>{{ skill.title }}</h4>
-            <p class="provider">{{ skill.provider }}</p>
-            <div class="card-meta">
-              <div class="rating">
-                <van-rate :model-value="skill.rating" readonly size="12px" color="#ff976a" />
-                <span>{{ skill.rating }}</span>
-              </div>
-              <span class="orders">{{ skill.orderCount }}人</span>
-            </div>
-            <div class="card-footer">
-              <div class="price">
-                <span class="currency">¥</span>
-                <span class="amount">{{ skill.price }}</span>
-                <span class="unit">/{{ skill.unit }}</span>
-              </div>
-              <van-button type="primary" size="mini" round>预约</van-button>
-            </div>
-          </div>
-        </div>
+      <van-loading v-if="isLoading" size="24px" vertical class="state-wrap">
+        加载中...
+      </van-loading>
+
+      <div v-else-if="loadFailed" class="empty-state">
+        <van-icon name="warning-o" size="60px" color="#ccc" />
+        <p>技能列表加载失败</p>
+        <van-button type="primary" plain round @click="loadSkills">重新加载</van-button>
       </div>
 
-      <div v-else class="skills-list">
-        <div 
-          v-for="skill in filteredSkills" 
-          :key="skill.id" 
-          class="skill-row"
-          @click="goToSkill(skill.id)"
-        >
-          <van-image :src="skill.image" class="row-image" />
-          <div class="row-content">
-            <h4>{{ skill.title }}</h4>
-            <p class="provider">{{ skill.provider }}</p>
-            <p class="description">{{ skill.description }}</p>
-            <div class="row-meta">
-              <div class="rating">
-                <van-rate :model-value="skill.rating" readonly size="12px" color="#ff976a" />
-                <span>{{ skill.rating }} ({{ skill.reviewCount }})</span>
+      <template v-else>
+        <div v-if="filteredSkills.length > 0 && viewMode === 'grid'" class="skills-grid">
+          <div
+            v-for="skill in filteredSkills"
+            :key="skill.id"
+            class="skill-card"
+            @click="goToSkill(skill.id)"
+          >
+            <div class="card-image">
+              <van-image :src="skill.image" fit="cover" />
+              <div class="skill-tag" v-if="isHotSkill(skill)">
+                <van-icon name="fire" size="10px" /> 热门
               </div>
-              <span class="location" v-if="skill.distance">
-                <van-icon name="location-o" size="12px" />
-                {{ skill.distance }}
-              </span>
+              <div class="skill-tag new" v-else-if="isNewSkill(skill)">
+                <van-icon name="new-o" size="10px" /> 新上架
+              </div>
             </div>
-            <div class="row-footer">
-              <div class="price">
-                <span class="currency">¥</span>
-                <span class="amount">{{ skill.price }}</span>
-                <span class="unit">/{{ skill.unit }}</span>
+
+            <div class="card-content">
+              <h4>{{ skill.title }}</h4>
+              <p class="provider">{{ skill.provider }}</p>
+
+              <div class="card-meta">
+                <div class="rating">
+                  <template v-if="skill.rating !== null">
+                    <van-rate
+                      :model-value="skill.rating"
+                      readonly
+                      allow-half
+                      size="12px"
+                      color="#ff976a"
+                    />
+                    <span>{{ skill.rating.toFixed(1) }}</span>
+                  </template>
+                  <template v-else>
+                    <span class="muted-text">暂无评分</span>
+                  </template>
+                </div>
+
+                <span class="orders">{{ skill.orderCount }}人</span>
               </div>
-              <span class="sales">{{ skill.orderCount }}人已预约</span>
+
+              <div class="card-footer">
+                <div class="price">
+                  <span class="currency">¥</span>
+                  <span class="amount">{{ skill.price }}</span>
+                  <span class="unit">/{{ skill.unit }}</span>
+                </div>
+                <van-button type="primary" size="mini" round>预约</van-button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div v-if="filteredSkills.length === 0" class="empty-state">
-        <van-icon name="search" size="60px" color="#ccc" />
-        <p>未找到相关技能</p>
-        <van-button type="primary" plain @click="clearFilters">清除筛选</van-button>
-      </div>
+        <div v-else-if="filteredSkills.length > 0" class="skills-list">
+          <div
+            v-for="skill in filteredSkills"
+            :key="skill.id"
+            class="skill-row"
+            @click="goToSkill(skill.id)"
+          >
+            <van-image :src="skill.image" class="row-image" />
 
-      <div class="load-status">
-        <van-divider v-if="isLoading">
-          <van-loading type="spinner" size="16px" />
-        </van-divider>
-        <van-divider v-else-if="hasMore">
-          上拉加载更多
-        </van-divider>
-        <van-divider v-else>
-          没有更多了
-        </van-divider>
-      </div>
+            <div class="row-content">
+              <h4>{{ skill.title }}</h4>
+              <p class="provider">{{ skill.provider }}</p>
+              <p class="description">{{ skill.description || '暂无详细描述' }}</p>
+
+              <div class="row-meta">
+                <div class="rating">
+                  <template v-if="skill.rating !== null">
+                    <van-rate
+                      :model-value="skill.rating"
+                      readonly
+                      allow-half
+                      size="12px"
+                      color="#ff976a"
+                    />
+                    <span>{{ skill.rating.toFixed(1) }} ({{ skill.reviewCount }})</span>
+                  </template>
+                  <template v-else>
+                    <span class="muted-text">暂无评分</span>
+                  </template>
+                </div>
+
+                <span class="service-type">
+                  {{ getServiceModeText(skill.serviceMode) }}
+                </span>
+              </div>
+
+              <div class="row-footer">
+                <div class="price">
+                  <span class="currency">¥</span>
+                  <span class="amount">{{ skill.price }}</span>
+                  <span class="unit">/{{ skill.unit }}</span>
+                </div>
+                <span class="sales">{{ skill.orderCount }}人已预约</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="empty-state">
+          <van-icon name="search" size="60px" color="#ccc" />
+          <p>未找到相关技能</p>
+          <van-button type="primary" plain round @click="clearFilters">清除筛选</van-button>
+        </div>
+      </template>
     </div>
 
     <van-popup v-model:show="showFilterPopup" position="right" :style="{ width: '80%', height: '100%' }">
@@ -189,17 +212,17 @@
         <div class="filter-group">
           <div class="group-title">价格范围</div>
           <div class="price-range">
-            <van-field 
-              v-model="filterForm.priceMin" 
-              type="number" 
-              placeholder="最低价" 
+            <van-field
+              v-model="filterForm.priceMin"
+              type="number"
+              placeholder="最低价"
               class="price-input"
             />
             <span class="separator">-</span>
-            <van-field 
-              v-model="filterForm.priceMax" 
-              type="number" 
-              placeholder="最高价" 
+            <van-field
+              v-model="filterForm.priceMax"
+              type="number"
+              placeholder="最高价"
               class="price-input"
             />
           </div>
@@ -217,18 +240,9 @@
         <div class="filter-group">
           <div class="group-title">服务方式</div>
           <van-checkbox-group v-model="filterForm.serviceTypes" direction="horizontal">
-            <van-checkbox name="online">线上</van-checkbox>
-            <van-checkbox name="offline">线下</van-checkbox>
+            <van-checkbox name="1">线上</van-checkbox>
+            <van-checkbox name="2">线下</van-checkbox>
           </van-checkbox-group>
-        </div>
-
-        <div class="filter-group">
-          <div class="group-title">接单状态</div>
-          <van-radio-group v-model="filterForm.availability" direction="horizontal">
-            <van-radio :name="''">全部</van-radio>
-            <van-radio :name="'available'">可接单</van-radio>
-            <van-radio :name="'busy'">忙碌中</van-radio>
-          </van-radio-group>
         </div>
 
         <div class="panel-footer">
@@ -240,68 +254,129 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { showToast } from 'vant'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { getSkillList } from '@/api/skill'
 
-interface Skill {
+interface RawSkill {
+  skillId?: number
+  id?: number
+  title?: string
+  description?: string
+  pricePerUnit?: number
+  price?: number
+  unitType?: number
+  unit?: string
+  mediaUrls?: string
+  providerName?: string
+  orderCount?: number
+  avgRating?: number
+  rating?: number
+  reviewCount?: number
+  serviceMode?: number
+}
+
+interface SkillItem {
   id: number
   title: string
   description: string
   provider: string
   price: number
   unit: string
-  rating: number
+  rating: number | null
   reviewCount: number
   orderCount: number
   image: string
-  isHot?: boolean
-  isNew?: boolean
-  distance?: string
-  serviceType: 'online' | 'offline' | 'both'
-  available: boolean
+  serviceMode: number
 }
+
+type SortType = 'default' | 'sales' | 'price' | 'rating'
+type FilterType = 'hot' | 'new'
 
 const router = useRouter()
 const route = useRoute()
 
 const searchKeyword = ref('')
-const activeFilter = ref('hot')
-const sortBy = ref('default')
+const activeFilter = ref<FilterType>('hot')
+const sortBy = ref<SortType>('default')
 const priceSortAsc = ref(true)
 const viewMode = ref<'grid' | 'list'>('grid')
 const showFilterPopup = ref(false)
 const isLoading = ref(false)
-const hasMore = ref(true)
-const currentPage = ref(1)
+const loadFailed = ref(false)
 
 const filterForm = ref({
   priceMin: '',
   priceMax: '',
   minRating: 0,
-  serviceTypes: [] as string[],
-  availability: ''
+  serviceTypes: [] as string[]
 })
 
-const allSkills = ref<Skill[]>([
-  { id: 1, title: '专业家政清洁服务', description: '提供家庭深度清洁、日常保洁、开荒保洁等服务', provider: '张阿姨', price: 100, unit: '次', rating: 4.8, reviewCount: 256, orderCount: 589, image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg', isHot: true, serviceType: 'offline', available: true },
-  { id: 2, title: '王者荣耀陪练上分', description: '专业代练，快速上分，赛季冲榜', provider: '小王', price: 50, unit: '小时', rating: 4.9, reviewCount: 189, orderCount: 456, image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg', isHot: true, serviceType: 'online', available: true },
-  { id: 3, title: '专业Logo设计', description: '品牌Logo、VI设计、商标注册', provider: '李设计师', price: 200, unit: '个', rating: 4.7, reviewCount: 98, orderCount: 234, image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg', isHot: true, serviceType: 'online', available: true },
-  { id: 4, title: 'Python编程入门', description: '一对一教学，从零基础到项目实战', provider: '王老师', price: 150, unit: '小时', rating: 5.0, reviewCount: 67, orderCount: 167, image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg', isNew: true, serviceType: 'online', available: true },
-  { id: 5, title: '瑜伽私教课程', description: '减脂塑形、康复训练、孕妇瑜伽', provider: '张教练', price: 180, unit: '小时', rating: 4.9, reviewCount: 145, orderCount: 312, image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg', serviceType: 'both', available: true },
-  { id: 6, title: '英语口语陪练', description: '商务英语、出国口语、雅思托福', provider: '李老师', price: 120, unit: '小时', rating: 4.8, reviewCount: 234, orderCount: 567, image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg', serviceType: 'both', available: false },
-  { id: 7, title: '简历优化服务', description: '简历诊断、修改润色、面试辅导', provider: 'HR王老师', price: 80, unit: '份', rating: 4.7, reviewCount: 89, orderCount: 234, image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg', serviceType: 'online', available: true },
-  { id: 8, title: '钢琴入门教学', description: '零基础入门、考级辅导、成人钢琴', provider: '赵老师', price: 200, unit: '小时', rating: 5.0, reviewCount: 56, orderCount: 123, image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg', isNew: true, serviceType: 'offline', available: true },
-  { id: 9, title: '摄影修图服务', description: '人像精修、婚礼跟拍、产品摄影', provider: '陈摄影师', price: 300, unit: '次', rating: 4.8, reviewCount: 78, orderCount: 189, image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg', serviceType: 'offline', available: true },
-  { id: 10, title: '宠物美容护理', description: '洗澡美容、造型修剪、寄养服务', provider: '宠物店', price: 80, unit: '次', rating: 4.7, reviewCount: 123, orderCount: 345, image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg', serviceType: 'offline', available: true }
-])
+const allSkills = ref<SkillItem[]>([])
+
+const unitMap: Record<number, string> = {
+  1: '小时',
+  2: '次',
+  3: '单',
+  4: '月'
+}
+
+const defaultImage = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
+
+const normalizeSkill = (raw: RawSkill): SkillItem => {
+  const image =
+    typeof raw.mediaUrls === 'string' && raw.mediaUrls.trim()
+      ? raw.mediaUrls.split(',')[0]
+      : defaultImage
+
+  const rating =
+    raw.avgRating !== undefined && raw.avgRating !== null
+      ? Number(raw.avgRating)
+      : raw.rating !== undefined && raw.rating !== null
+        ? Number(raw.rating)
+        : null
+
+  return {
+    id: Number(raw.skillId ?? raw.id ?? 0),
+    title: raw.title ?? '技能服务',
+    description: raw.description ?? '',
+    provider: raw.providerName ?? '服务者',
+    price: Number(raw.pricePerUnit ?? raw.price ?? 0),
+    unit: raw.unit ?? unitMap[Number(raw.unitType)] ?? '次',
+    rating,
+    reviewCount: Number(raw.reviewCount ?? 0),
+    orderCount: Number(raw.orderCount ?? 0),
+    image,
+    serviceMode: Number(raw.serviceMode ?? 0)
+  }
+}
+
+const hotSkillIds = computed(() => {
+  return [...allSkills.value]
+    .sort((a, b) => {
+      if (b.orderCount !== a.orderCount) return b.orderCount - a.orderCount
+      return b.id - a.id
+    })
+    .slice(0, 6)
+    .map((item) => item.id)
+})
+
+const newSkillIds = computed(() => {
+  return [...allSkills.value]
+    .sort((a, b) => b.id - a.id)
+    .slice(0, 6)
+    .map((item) => item.id)
+})
+
+const isHotSkill = (skill: SkillItem) => hotSkillIds.value.includes(skill.id)
+const isNewSkill = (skill: SkillItem) => newSkillIds.value.includes(skill.id)
 
 const filteredSkills = computed(() => {
   let result = [...allSkills.value]
 
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase()
-    result = result.filter(s => 
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  if (keyword) {
+    result = result.filter((s) =>
       s.title.toLowerCase().includes(keyword) ||
       s.provider.toLowerCase().includes(keyword) ||
       s.description.toLowerCase().includes(keyword)
@@ -309,79 +384,135 @@ const filteredSkills = computed(() => {
   }
 
   if (filterForm.value.priceMin) {
-    result = result.filter(s => s.price >= Number(filterForm.value.priceMin))
-  }
-  if (filterForm.value.priceMax) {
-    result = result.filter(s => s.price <= Number(filterForm.value.priceMax))
-  }
-  if (filterForm.value.minRating > 0) {
-    result = result.filter(s => s.rating >= filterForm.value.minRating)
-  }
-  if (filterForm.value.serviceTypes.length > 0) {
-    result = result.filter(s => 
-      s.serviceType === 'both' || 
-      filterForm.value.serviceTypes.includes(s.serviceType)
-    )
-  }
-  if (filterForm.value.availability === 'available') {
-    result = result.filter(s => s.available)
-  } else if (filterForm.value.availability === 'busy') {
-    result = result.filter(s => !s.available)
+    result = result.filter((s) => s.price >= Number(filterForm.value.priceMin))
   }
 
-  switch (sortBy.value) {
-    case 'sales':
-      result.sort((a, b) => b.orderCount - a.orderCount)
-      break
-    case 'price':
-      result.sort((a, b) => priceSortAsc.value ? a.price - b.price : b.price - a.price)
-      break
-    case 'rating':
-      result.sort((a, b) => b.rating - a.rating)
-      break
-    default:
-      if (activeFilter.value === 'hot') {
-        result.sort((a, b) => (b.isHot ? 1 : 0) - (a.isHot ? 1 : 0))
-      } else if (activeFilter.value === 'new') {
-        result.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0))
-      } else if (activeFilter.value === 'nearby') {
-        result = result.map(s => ({
-          ...s,
-          distance: `${(Math.random() * 5 + 0.5).toFixed(1)}km`
-        })).sort((a, b) => parseFloat(a.distance!) - parseFloat(b.distance!))
-      }
+  if (filterForm.value.priceMax) {
+    result = result.filter((s) => s.price <= Number(filterForm.value.priceMax))
+  }
+
+  if (filterForm.value.minRating > 0) {
+    result = result.filter((s) => (s.rating ?? 0) >= filterForm.value.minRating)
+  }
+
+  if (filterForm.value.serviceTypes.length > 0) {
+    result = result.filter((s) =>
+      filterForm.value.serviceTypes.includes(String(s.serviceMode))
+    )
+  }
+
+  if (sortBy.value === 'sales') {
+    result.sort((a, b) => {
+      if (b.orderCount !== a.orderCount) return b.orderCount - a.orderCount
+      return b.id - a.id
+    })
+    return result
+  }
+
+  if (sortBy.value === 'price') {
+    result.sort((a, b) => (priceSortAsc.value ? a.price - b.price : b.price - a.price))
+    return result
+  }
+
+  if (sortBy.value === 'rating') {
+    result.sort((a, b) => {
+      const ratingA = a.rating ?? -1
+      const ratingB = b.rating ?? -1
+      if (ratingB !== ratingA) return ratingB - ratingA
+      return b.id - a.id
+    })
+    return result
+  }
+
+  if (activeFilter.value === 'new') {
+    result.sort((a, b) => b.id - a.id)
+  } else {
+    result.sort((a, b) => {
+      if (b.orderCount !== a.orderCount) return b.orderCount - a.orderCount
+      return b.id - a.id
+    })
   }
 
   return result
 })
 
 const hasActiveFilters = computed(() => {
-  return filterForm.value.priceMin || 
-    filterForm.value.priceMax || 
+  return Boolean(
+    filterForm.value.priceMin ||
+    filterForm.value.priceMax ||
     filterForm.value.minRating > 0 ||
-    filterForm.value.serviceTypes.length > 0 ||
-    filterForm.value.availability
+    filterForm.value.serviceTypes.length > 0
+  )
 })
 
 const priceSortIcon = computed(() => {
-  if (sortBy.value !== 'price') return 'caret-down'
-  return priceSortAsc.value ? 'caret-up' : 'caret-down'
+  if (sortBy.value !== 'price') return 'arrow-down'
+  return priceSortAsc.value ? 'arrow-up' : 'arrow-down'
 })
+
+const syncStateFromRoute = () => {
+  searchKeyword.value = typeof route.query.keyword === 'string' ? route.query.keyword : ''
+
+  const tab = route.query.tab
+  activeFilter.value = tab === 'new' ? 'new' : 'hot'
+
+  const sort = route.query.sort
+  if (sort === 'sales' || sort === 'price' || sort === 'rating' || sort === 'default') {
+    sortBy.value = sort
+  } else {
+    sortBy.value = 'default'
+  }
+}
+
+const updateRouteQuery = () => {
+  const query: Record<string, string> = {}
+
+  const keyword = searchKeyword.value.trim()
+  if (keyword) query.keyword = keyword
+  if (activeFilter.value !== 'hot') query.tab = activeFilter.value
+  if (sortBy.value !== 'default') query.sort = sortBy.value
+
+  router.replace({ path: '/browse', query })
+}
+
+const loadSkills = async () => {
+  isLoading.value = true
+  loadFailed.value = false
+
+  try {
+    const params: Record<string, string | number> = {
+      page: 1,
+      size: 50
+    }
+
+    const keyword = searchKeyword.value.trim()
+    if (keyword) {
+      params.keyword = keyword
+    }
+
+    const data = (await getSkillList(params)) as { records?: RawSkill[] }
+    const records = data?.records ?? []
+    allSkills.value = records.map(normalizeSkill).filter((item) => item.id > 0)
+  } catch {
+    allSkills.value = []
+    loadFailed.value = true
+  } finally {
+    isLoading.value = false
+  }
+}
 
 onMounted(() => {
-  if (route.query.keyword) {
-    searchKeyword.value = route.query.keyword as string
-  }
-  if (route.query.tab) {
-    activeFilter.value = route.query.tab as string
-  }
+  syncStateFromRoute()
+  loadSkills()
 })
 
-watch(() => route.query.tab, (newTab) => {
-  if (newTab) {
-    activeFilter.value = newTab as string
+watch(
+  () => route.query,
+  () => {
+    syncStateFromRoute()
+    loadSkills()
   }
-})
+)
 
 const goBack = () => router.back()
 
@@ -393,28 +524,22 @@ const toggleViewMode = () => {
   viewMode.value = viewMode.value === 'grid' ? 'list' : 'grid'
 }
 
-const setFilter = (filter: string) => {
+const setFilter = (filter: FilterType) => {
   activeFilter.value = filter
-  if (filter === 'price' && sortBy.value === 'price') {
-    priceSortAsc.value = !priceSortAsc.value
-  } else if (filter !== 'price') {
-    sortBy.value = 'default'
-  }
+  updateRouteQuery()
 }
 
-const setSort = (sort: string) => {
+const setSort = (sort: SortType) => {
   if (sortBy.value === sort && sort === 'price') {
     priceSortAsc.value = !priceSortAsc.value
+  } else {
+    sortBy.value = sort
   }
-  sortBy.value = sort
-  if (sort !== 'hot' && sort !== 'new' && sort !== 'nearby') {
-    activeFilter.value = 'hot'
-  }
+  updateRouteQuery()
 }
 
 const onSearch = () => {
-  currentPage.value = 1
-  showToast('搜索完成')
+  updateRouteQuery()
 }
 
 const clearFilters = () => {
@@ -422,18 +547,24 @@ const clearFilters = () => {
     priceMin: '',
     priceMax: '',
     minRating: 0,
-    serviceTypes: [],
-    availability: ''
+    serviceTypes: []
   }
   searchKeyword.value = ''
+  activeFilter.value = 'hot'
+  sortBy.value = 'default'
+  priceSortAsc.value = true
   showFilterPopup.value = false
-  showToast('已清除筛选')
+  router.replace({ path: '/browse', query: {} })
 }
 
 const applyFilters = () => {
   showFilterPopup.value = false
-  currentPage.value = 1
-  showToast('筛选已应用')
+}
+
+const getServiceModeText = (serviceMode: number) => {
+  if (serviceMode === 1) return '线上服务'
+  if (serviceMode === 2) return '线下服务'
+  return '服务方式待定'
 }
 </script>
 
@@ -520,6 +651,10 @@ const applyFilters = () => {
   padding: 10px;
 }
 
+.state-wrap {
+  padding: 32px 0;
+}
+
 .skills-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -591,12 +726,14 @@ const applyFilters = () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
+  gap: 8px;
 }
 
 .rating {
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
 }
 
 .rating span {
@@ -604,9 +741,15 @@ const applyFilters = () => {
   color: #ff976a;
 }
 
+.muted-text {
+  font-size: 12px;
+  color: #999;
+}
+
 .orders {
   font-size: 11px;
   color: #999;
+  flex-shrink: 0;
 }
 
 .card-footer {
@@ -655,12 +798,14 @@ const applyFilters = () => {
   width: 100px;
   height: 100px;
   border-radius: 8px;
+  flex-shrink: 0;
 }
 
 .row-content {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .row-content h4 {
@@ -691,19 +836,13 @@ const applyFilters = () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+  gap: 8px;
 }
 
-.row-meta .rating span {
-  font-size: 12px;
-  color: #666;
-}
-
-.location {
+.service-type {
   font-size: 12px;
   color: #999;
-  display: flex;
-  align-items: center;
-  gap: 2px;
+  flex-shrink: 0;
 }
 
 .row-footer {
@@ -725,10 +864,6 @@ const applyFilters = () => {
 .empty-state p {
   color: #999;
   margin: 15px 0;
-}
-
-.load-status {
-  padding: 20px 0;
 }
 
 .filter-panel {

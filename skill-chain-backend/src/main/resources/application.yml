@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8081
   servlet:
     context-path: /api
 
@@ -34,7 +34,7 @@ spring:
 file:
   upload:
     path: ./uploads
-    base-url: http://localhost:8080/api/uploads
+    base-url: http://localhost:8081/api/uploads
 
 mybatis-plus:
   configuration:

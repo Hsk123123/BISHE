@@ -50,8 +50,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/**", "/skill/public/**", "/error", "/swagger-resources/**", "/webjars/**", "/v2/api-docs").permitAll()
-                .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/auth/**", "/skill/public/**", "/category/list", "/error", "/swagger-resources/**", "/webjars/**", "/v2/api-docs").permitAll()
+                .requestMatchers("/admin/**", "/category/**").hasRole("ADMIN")
                 .requestMatchers("/worker/**").hasAnyRole("WORKER", "ADMIN")
                 .anyRequest().authenticated()
             )

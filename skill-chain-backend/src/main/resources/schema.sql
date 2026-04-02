@@ -288,22 +288,6 @@ CREATE TABLE IF NOT EXISTS `notice` (
 -- Compatibility patch: keep schema aligned with current entities
 -- =============================================================
 
-CREATE TABLE IF NOT EXISTS `withdrawal_request` (
-    `id` BIGINT NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT NOT NULL,
-    `amount` DECIMAL(10,2) NOT NULL,
-    `fee` DECIMAL(10,2) DEFAULT 0.00,
-    `actual_amount` DECIMAL(10,2) NOT NULL,
-    `status` INT DEFAULT 0,
-    `bank_name` VARCHAR(50),
-    `bank_card` VARCHAR(50),
-    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    `process_time` DATETIME,
-    PRIMARY KEY (`id`),
-    KEY `idx_user_id` (`user_id`),
-    KEY `idx_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 ALTER TABLE `wallet` ADD COLUMN IF NOT EXISTS `payment_password` VARCHAR(255);
 ALTER TABLE `wallet` ADD COLUMN IF NOT EXISTS `deleted` INT DEFAULT 0;
 

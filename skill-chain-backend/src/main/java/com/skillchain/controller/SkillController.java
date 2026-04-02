@@ -2,6 +2,7 @@ package com.skillchain.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.skillchain.common.Result;
+import com.skillchain.dto.PublishSkillRequest;
 import com.skillchain.entity.Schedule;
 import com.skillchain.entity.Skill;
 import com.skillchain.service.ScheduleService;
@@ -49,9 +50,9 @@ public class SkillController {
     }
 
     @PostMapping("/publish")
-    public Result<Void> publishSkill(@RequestBody Skill skill, HttpServletRequest request) {
-        Long providerId = (Long) request.getAttribute("userId");
-        skillService.publishSkill(providerId, skill);
+    public Result<Void> publishSkill(@RequestBody PublishSkillRequest request, HttpServletRequest httpRequest) {
+        Long providerId = (Long) httpRequest.getAttribute("userId");
+        skillService.publishSkillWithSchedules(providerId, request);
         return Result.success("Published", null);
     }
 

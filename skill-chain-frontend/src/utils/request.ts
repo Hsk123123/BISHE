@@ -28,7 +28,9 @@ request.interceptors.response.use(
       return data
     } else {
       showToast(message || 'Request failed')
-      return Promise.reject(new Error(message))
+      const error = new Error(message)
+      ;(error as any).response = response
+      return Promise.reject(error)
     }
   },
   (error) => {
@@ -43,7 +45,7 @@ request.interceptors.response.use(
       router.push('/login')
     }
     showToast(serverMessage)
-    return Promise.reject(new Error(serverMessage))
+    return Promise.reject(error)
   }
 )
 

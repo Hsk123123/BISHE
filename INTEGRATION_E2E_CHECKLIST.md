@@ -29,8 +29,8 @@
 - 预期：返回 token、user 信息
 
 3. 管理员身份准备
-- 接口：`POST /user/role/switch?newRole=2`（当前实现）
-- 预期：切换后重新登录，token 具备 admin 权限
+- 方式：使用预置管理员账号登录（不再通过普通用户自切角色获得管理员权限）
+- 预期：token 具备 admin 权限
 
 4. 服务者发布技能
 - 接口：`POST /skill/publish`
@@ -89,9 +89,10 @@
 
 ## 5. 本次联调中使用的临时补位
 
-1. 排期无开放接口
-- 现状：后端没有新增排期的 controller 接口
-- 临时处理：直接 SQL 插入 `schedule`
+1. 排期曾无开放接口（已修复）
+- 现状（历史）：曾经缺少排期创建接口，无法仅靠 API 完成链路
+- 当前：已补充接口 `POST /skill/{skillId}/schedule`、`DELETE /skill/{skillId}/schedule/{scheduleId}`
+- 处理方式：优先走 API；仅在排查历史数据问题时才使用 SQL
 
 2. 数据库结构与实体不一致
 - 现状：多张表缺少实体字段，导致部分接口 500

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.skillchain.entity.Wallet;
 import com.skillchain.entity.WithdrawalRequest;
+import com.skillchain.mapper.OrderMapper;
 import com.skillchain.mapper.WithdrawalRequestMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +28,9 @@ public class WithdrawalService {
 
     @Autowired
     private TransactionLogService transactionLogService;
+
+    @Autowired
+    private OrderMapper orderMapper;
 
     @Value("${system.withdrawal-fee-rate:0.05}")
     private Double withdrawalFeeRate;
@@ -117,10 +121,25 @@ public class WithdrawalService {
     public Map<String, Object> getEarningsStats(Long userId) {
         Wallet wallet = walletService.getWalletByUserId(userId);
         BigDecimal available = wallet != null ? wallet.getCnyCoinBalance() : BigDecimal.ZERO;
+
+        BigDecimal totalEarnings = orderMapper.selectTotalEarnings(userId);
+        BigDecimal monthlyEarnings = orderMapper.selectMonthlyEarnings(userId);
+        Integer monthlyOrders = orderMapper.selectMonthlyOrders(userId);
+        Integer completedOrders = orderMapper.selectCompletedOrders(userId);
+
+        BigDecimal avgOrderValue = BigDecimal.ZERO;
+        if (completedOrders != null && completedOrders > 0 && totalEarnings != null) {
+            avgOrderValue = totalEarnings.divide(BigDecimal.valueOf(completedOrders), 2, RoundingMode.HALF_UP);
+        }
+
         Map<String, Object> stats = new HashMap<>();
         stats.put("availableAmount", available);
         stats.put("frozenAmount", BigDecimal.ZERO);
-        stats.put("totalEarnings", available);
+        stats.put("totalEarnings", totalEarnings != null ? totalEarnings : BigDecimal.ZERO);
+        stats.put("monthlyEarnings", monthlyEarnings != null ? monthlyEarnings : BigDecimal.ZERO);
+        stats.put("monthlyOrders", monthlyOrders != null ? monthlyOrders : 0);
+        stats.put("completedOrders", completedOrders != null ? completedOrders : 0);
+        stats.put("avgOrderValue", avgOrderValue);
         return stats;
     }
 }

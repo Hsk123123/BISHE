@@ -14,7 +14,10 @@
     </div>
 
     <div class="skill-list">
+      <van-loading v-if="loading" size="24px" vertical style="padding: 20px;">加载中...</van-loading>
+      <div v-else-if="skills.length === 0" class="empty-tip">暂无技能数据</div>
       <van-card
+        v-else
         v-for="skill in skills"
         :key="skill.id"
         :desc="skill.description"
@@ -35,21 +38,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { getSkillList } from '@/api/skill'
+
+interface SkillItem {
+  id: number
+  title: string
+  description: string
+  price: string
+  image: string
+}
 
 const router = useRouter()
 const activeTab = ref(1)
 const searchText = ref('')
 const category = ref(0)
 const sort = ref(0)
+const loading = ref(false)
 
 const categoryOptions = [
   { text: '全部分类', value: 0 },
   { text: '家政服务', value: 1 },
   { text: '技能陪练', value: 2 },
   { text: '设计服务', value: 3 },
-  { text: '教育培训', value: 4 }
+  { text: '咨询服务', value: 4 },
+  { text: '教育培训', value: 5 }
 ]
 
 const sortOptions = [
@@ -59,24 +73,56 @@ const sortOptions = [
   { text: '最新发布', value: 3 }
 ]
 
-const skills = ref([
-  { id: 1, title: '专业家政清洁', description: '提供家庭深度清洁服务', price: '100元/次', image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg' },
-  { id: 2, title: '游戏陪练', description: '王者荣耀/英雄联盟陪练', price: '50元/小时', image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg' },
-  { id: 3, title: 'Logo设计', description: '专业品牌Logo设计', price: '200元/个', image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg' },
-  { id: 4, title: '英语口语陪练', description: '雅思/托福口语陪练', price: '80元/小时', image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg' }
-])
+const skills = ref<SkillItem[]>([])
 
-const onSearch = () => {
-  console.log('搜索:', searchText.value)
+const loadSkills = async () => {
+  loading.value = true
+  try {
+    const params: any = {
+      page: 1,
+      size: 50,
+      sort: sort.value
+    }
+    if (category.value > 0) {
+      params.categoryId = category.value
+    }
+    if (searchText.value.trim()) {
+      params.keyword = searchText.value.trim()
+    }
+    
+    const data = await getSkillList(params) as { records?: Array<any> }
+    const records = data?.records ?? []
+    const unitMap: Record<number, string> = { 1: '小时', 2: '次', 3: '单', 4: '月' }
+    
+    skills.value = records.map((r: any) => ({
+      id: r.skillId ?? r.id,
+      title: r.title ?? '技能服务',
+      description: r.description ?? '',
+      price: `¥${Number(r.pricePerUnit ?? 0)}/${unitMap[r.unitType] ?? '次'}`,
+      image: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
+    }))
+  } catch {
+    skills.value = []
+  } finally {
+    loading.value = false
+  }
 }
 
-const onFilterChange = () => {
-  console.log('筛选:', category.value, sort.value)
+watch([category, sort], () => {
+  loadSkills()
+})
+
+const onSearch = () => {
+  loadSkills()
 }
 
 const goToSkill = (id: number) => {
   router.push(`/skill/${id}`)
 }
+
+onMounted(() => {
+  loadSkills()
+})
 </script>
 
 <style scoped>
@@ -100,5 +146,12 @@ const goToSkill = (id: number) => {
   margin-bottom: 10px;
   border-radius: 8px;
   overflow: hidden;
+}
+
+.empty-tip {
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+  padding: 40px 20px;
 }
 </style>

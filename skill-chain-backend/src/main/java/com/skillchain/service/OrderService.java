@@ -6,9 +6,11 @@ import com.skillchain.entity.Order;
 import com.skillchain.entity.Skill;
 import com.skillchain.aspect.TaskTrigger;
 import com.skillchain.enums.OrderStatus;
+import com.skillchain.exception.BusinessException;
 import com.skillchain.mapper.OrderMapper;
 import com.skillchain.service.state.OrderState;
 import com.skillchain.service.state.OrderStateFactory;
+import com.skillchain.vo.OrderVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,28 +52,41 @@ public class OrderService {
         return orderMapper.selectPage(pageInfo, wrapper);
     }
 
+    public Page<OrderVO> getOrderVOList(Long userId, Integer status, Integer page, Integer size) {
+        Page<OrderVO> pageInfo = new Page<>(page, size);
+        return orderMapper.selectOrderVOList(pageInfo, userId, status);
+    }
+
+    public Page<OrderVO> getProviderOrderVOList(Long providerId, Integer status, Integer page, Integer size) {
+        Page<OrderVO> pageInfo = new Page<>(page, size);
+        return orderMapper.selectProviderOrderVOList(pageInfo, providerId, status);
+    }
+
     public Order getOrderById(Long orderId) {
         return orderMapper.selectById(orderId);
+    }
+
+    public OrderVO getOrderVOById(Long orderId) {
+        return orderMapper.selectOrderVOById(orderId);
     }
 
     @Transactional
     public Order createOrder(Long buyerId, Long skillId, String scheduleDate, String timeSlot) {
         Skill skill = skillService.getSkillById(skillId);
         if (skill == null) {
-            throw new RuntimeException("技能不存在");
+            throw new BusinessException("技能不存在");
         }
 
         com.skillchain.entity.Schedule schedule = scheduleService.findByProviderDateSlot(
                 skill.getProviderId(), scheduleDate, timeSlot);
         if (schedule == null) {
-            throw new RuntimeException("该时间段不可预约，请选择其他时间");
+            throw new BusinessException("该时间段不可预约，请选择其他时间");
         }
         Long scheduleId = schedule.getScheduleId();
 
-        // 预锁定时间槽
         boolean lockSuccess = scheduleService.preLockSchedule(scheduleId);
         if (!lockSuccess) {
-            throw new RuntimeException("该时间段已被预约，请选择其他时间");
+            throw new BusinessException("该时间段已被预约，请选择其他时间");
         }
 
         Order order = new Order();
@@ -84,7 +99,7 @@ public class OrderService {
         order.setScheduleDate(scheduleDate);
         order.setTimeSlot(timeSlot);
         order.setVerificationCode(generateVerificationCode());
-        order.setScheduleId(scheduleId); // 保存scheduleId到订单
+        order.setScheduleId(scheduleId);
 
         orderMapper.insert(order);
 
@@ -95,7 +110,7 @@ public class OrderService {
     public void payOrder(Long orderId) {
         Order order = getOrderById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new BusinessException("订单不存在");
         }
 
         OrderState state = OrderStateFactory.getState(OrderStatus.fromCode(order.getStatus()));
@@ -106,10 +121,10 @@ public class OrderService {
     public void acceptOrder(Long providerId, Long orderId) {
         Order order = getOrderById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new BusinessException("订单不存在");
         }
         if (!order.getProviderId().equals(providerId)) {
-            throw new RuntimeException("无权操作");
+            throw new BusinessException(403, "无权操作");
         }
 
         OrderState state = OrderStateFactory.getState(OrderStatus.fromCode(order.getStatus()));
@@ -120,10 +135,10 @@ public class OrderService {
     public void startService(Long providerId, Long orderId) {
         Order order = getOrderById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new BusinessException("订单不存在");
         }
         if (!order.getProviderId().equals(providerId)) {
-            throw new RuntimeException("无权操作");
+            throw new BusinessException(403, "无权操作");
         }
 
         OrderState state = OrderStateFactory.getState(OrderStatus.fromCode(order.getStatus()));
@@ -135,10 +150,10 @@ public class OrderService {
     public void completeOrder(Long providerId, Long orderId) {
         Order order = getOrderById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new BusinessException("订单不存在");
         }
         if (!order.getProviderId().equals(providerId)) {
-            throw new RuntimeException("无权操作");
+            throw new BusinessException(403, "无权操作");
         }
 
         OrderState state = OrderStateFactory.getState(OrderStatus.fromCode(order.getStatus()));
@@ -149,10 +164,10 @@ public class OrderService {
     public void cancelOrder(Long buyerId, Long orderId) {
         Order order = getOrderById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new BusinessException("订单不存在");
         }
         if (!order.getBuyerId().equals(buyerId)) {
-            throw new RuntimeException("无权操作");
+            throw new BusinessException(403, "无权操作");
         }
 
         OrderState state = OrderStateFactory.getState(OrderStatus.fromCode(order.getStatus()));
@@ -163,7 +178,7 @@ public class OrderService {
     public void refundOrder(Long orderId) {
         Order order = getOrderById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new BusinessException("订单不存在");
         }
 
         OrderState state = OrderStateFactory.getState(OrderStatus.fromCode(order.getStatus()));
@@ -179,13 +194,13 @@ public class OrderService {
     public void finishReview(Long buyerId, Long orderId) {
         Order order = getOrderById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new BusinessException("订单不存在");
         }
         if (!order.getBuyerId().equals(buyerId)) {
-            throw new RuntimeException("无权操作");
+            throw new BusinessException(403, "无权操作");
         }
         if (order.getStatus() != OrderStatus.PENDING_REVIEW.getCode()) {
-            throw new RuntimeException("订单未到待评价状态");
+            throw new BusinessException("订单未到待评价状态");
         }
         updateOrderStatus(order, OrderStatus.COMPLETED);
     }
