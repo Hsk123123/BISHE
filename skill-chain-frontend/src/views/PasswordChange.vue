@@ -3,65 +3,53 @@
     <van-nav-bar title="修改密码" left-arrow fixed @click-left="goBack" />
 
     <div class="form-content">
-      <van-form @submit="onSubmit">
-        <van-cell-group inset>
-          <van-field
-            v-model="form.oldPassword"
-            type="password"
-            name="oldPassword"
-            label="原密码"
-            placeholder="请输入原密码"
-            :rules="[{ required: true, message: '请输入原密码' }]"
-          />
-          <van-field
-            v-model="form.newPassword"
-            type="password"
-            name="newPassword"
-            label="新密码"
-            placeholder="请输入新密码"
-            :rules="[
-              { required: true, message: '请输入新密码' },
-              { min: 6, message: '密码至少6位' }
-            ]"
-          />
-          <van-field
-            v-model="form.confirmPassword"
-            type="password"
-            name="confirmPassword"
-            label="确认密码"
-            placeholder="请再次输入新密码"
-            :rules="[
-              { required: true, message: '请确认密码' },
-              { validator: validateConfirm, message: '两次密码不一致' }
-            ]"
-          />
-        </van-cell-group>
+      <van-cell-group inset>
+        <van-field
+          v-model="form.oldPassword"
+          type="password"
+          label="原密码"
+          placeholder="请输入原密码"
+        />
+        <van-field
+          v-model="form.newPassword"
+          type="password"
+          label="新密码"
+          placeholder="请输入新密码"
+        />
+        <van-field
+          v-model="form.confirmPassword"
+          type="password"
+          label="确认密码"
+          placeholder="请再次输入新密码"
+        />
+      </van-cell-group>
 
-        <div class="tips">
-          <p>密码要求：</p>
-          <ul>
-            <li>至少6个字符</li>
-            <li>建议包含字母和数字</li>
-          </ul>
-        </div>
+      <div class="tips">
+        <p>⚠️ 当前为演示环境</p>
+        <p>密码修改功能暂未接入后端，仅用于界面展示。</p>
+      </div>
 
-        <div class="submit-area">
-          <van-button type="primary" native-type="submit" block :loading="isSubmitting">
-            确认修改
-          </van-button>
-        </div>
-      </van-form>
+      <div class="submit-area">
+        <van-button
+          type="primary"
+          block
+          :loading="loading"
+          @click="handleSubmit"
+        >
+          确认修改
+        </van-button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showSuccessToast } from 'vant'
 
 const router = useRouter()
-const isSubmitting = ref(false)
+const loading = ref(false)
 
 const form = reactive({
   oldPassword: '',
@@ -69,26 +57,39 @@ const form = reactive({
   confirmPassword: ''
 })
 
-const validateConfirm = (val: string) => {
-  return val === form.newPassword
-}
-
 const goBack = () => {
   router.back()
 }
 
-const onSubmit = async () => {
+const handleSubmit = async () => {
+  if (!form.oldPassword) {
+    showToast('请输入原密码')
+    return
+  }
+
+  if (!form.newPassword) {
+    showToast('请输入新密码')
+    return
+  }
+
+  if (!form.confirmPassword) {
+    showToast('请确认密码')
+    return
+  }
+
   if (form.newPassword !== form.confirmPassword) {
     showToast('两次密码不一致')
     return
   }
 
-  isSubmitting.value = true
-  await new Promise(resolve => setTimeout(resolve, 1000))
-  isSubmitting.value = false
+  loading.value = true
 
-  showSuccessToast('密码修改成功')
-  router.back()
+  // 模拟一点点延迟，让体验更自然
+  setTimeout(() => {
+    loading.value = false
+    showSuccessToast('演示环境：未实际修改密码')
+    router.back()
+  }, 500)
 }
 </script>
 
@@ -104,26 +105,17 @@ const onSubmit = async () => {
 }
 
 .tips {
-  padding: 15px;
-  color: #999;
+  margin-top: 16px;
+  padding: 12px;
+  background: #fff7e6;
+  border-radius: 8px;
   font-size: 13px;
-}
-
-.tips p {
-  margin: 0 0 8px 0;
-}
-
-.tips ul {
-  margin: 0;
-  padding-left: 20px;
-}
-
-.tips li {
-  margin-bottom: 4px;
+  color: #666;
+  line-height: 1.6;
 }
 
 .submit-area {
-  margin: 30px 15px;
+  margin-top: 24px;
 }
 
 :deep(.van-cell__title) {

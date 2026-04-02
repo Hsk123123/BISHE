@@ -5,7 +5,12 @@
         <div class="card-header">
           <span>工作者申请审核</span>
           <div class="header-actions">
-            <el-select v-model="filterStatus" placeholder="申请状态" clearable style="width: 140px; margin-right: 10px;">
+            <el-select
+              v-model="filterStatus"
+              placeholder="申请状态"
+              clearable
+              style="width: 140px; margin-right: 10px;"
+            >
               <el-option label="待审核" :value="0" />
               <el-option label="已通过" :value="1" />
               <el-option label="已拒绝" :value="2" />
@@ -20,27 +25,49 @@
       <el-table :data="applications" style="width: 100%" v-loading="loading">
         <el-table-column prop="applicationId" label="申请ID" width="90" />
         <el-table-column prop="userId" label="用户ID" width="90" />
-        <el-table-column prop="realName" label="真实姓名" width="110" />
-        <el-table-column prop="phone" label="手机号" width="130" />
-        <el-table-column prop="skillTitle" label="技能标题" min-width="180" />
-        <el-table-column prop="category" label="分类" width="120" />
-        <el-table-column label="价格" width="120">
+        <el-table-column prop="realName" label="真实姓名" width="120" />
+        <el-table-column prop="phone" label="手机号" width="140" />
+        <el-table-column prop="category" label="申请方向" width="140" />
+        <el-table-column label="申请说明" min-width="220">
           <template #default="scope">
-            {{ formatPrice(scope.row.price, scope.row.unit) }}
+            {{ scope.row.description || '-' }}
           </template>
         </el-table-column>
         <el-table-column label="状态" width="110">
           <template #default="scope">
-            <el-tag :type="getStatusType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
+            <el-tag :type="getStatusType(scope.row.status)">
+              {{ getStatusText(scope.row.status) }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="submitTime" label="提交时间" width="180" />
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="scope">
             <el-button type="primary" size="small" @click="handleView(scope.row)">查看</el-button>
-            <el-button v-if="scope.row.status === 0" type="success" size="small" @click="handleApprove(scope.row)">通过</el-button>
-            <el-button v-if="scope.row.status === 0" type="danger" size="small" @click="handleReject(scope.row)">拒绝</el-button>
-            <el-button v-if="scope.row.status !== 0" type="warning" size="small" @click="handleRevert(scope.row)">撤回</el-button>
+            <el-button
+              v-if="scope.row.status === 0"
+              type="success"
+              size="small"
+              @click="handleApprove(scope.row)"
+            >
+              通过
+            </el-button>
+            <el-button
+              v-if="scope.row.status === 0"
+              type="danger"
+              size="small"
+              @click="handleReject(scope.row)"
+            >
+              拒绝
+            </el-button>
+            <el-button
+              v-if="scope.row.status !== 0"
+              type="warning"
+              size="small"
+              @click="handleRevert(scope.row)"
+            >
+              撤回
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -57,22 +84,43 @@
 
     <el-dialog v-model="detailDialogVisible" title="申请详情" width="760px">
       <el-descriptions :column="2" border v-if="currentApplication">
-        <el-descriptions-item label="申请ID">{{ currentApplication.applicationId }}</el-descriptions-item>
-        <el-descriptions-item label="用户ID">{{ currentApplication.userId }}</el-descriptions-item>
-        <el-descriptions-item label="真实姓名">{{ currentApplication.realName }}</el-descriptions-item>
-        <el-descriptions-item label="手机号">{{ currentApplication.phone }}</el-descriptions-item>
-        <el-descriptions-item label="身份证号">{{ currentApplication.idCard || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="getStatusType(currentApplication.status)">{{ getStatusText(currentApplication.status) }}</el-tag>
+        <el-descriptions-item label="申请ID">
+          {{ currentApplication.applicationId }}
         </el-descriptions-item>
-        <el-descriptions-item label="技能标题" :span="2">{{ currentApplication.skillTitle || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="技能分类">{{ currentApplication.category || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="价格">{{ formatPrice(currentApplication.price, currentApplication.unit) }}</el-descriptions-item>
-        <el-descriptions-item label="服务范围" :span="2">{{ currentApplication.serviceArea || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="技能描述" :span="2">{{ currentApplication.description || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="从业经验" :span="2">{{ currentApplication.experience || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="拒绝原因" :span="2">{{ currentApplication.rejectReason || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="用户ID">
+          {{ currentApplication.userId }}
+        </el-descriptions-item>
+        <el-descriptions-item label="真实姓名">
+          {{ currentApplication.realName || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="手机号">
+          {{ currentApplication.phone || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="身份证号">
+          {{ currentApplication.idCard || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="状态">
+          <el-tag :type="getStatusType(currentApplication.status)">
+            {{ getStatusText(currentApplication.status) }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="申请方向">
+          {{ currentApplication.category || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="服务范围">
+          {{ currentApplication.serviceArea || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="申请说明" :span="2">
+          {{ currentApplication.description || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="从业经验" :span="2">
+          {{ currentApplication.experience || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="拒绝原因" :span="2">
+          {{ currentApplication.rejectReason || '-' }}
+        </el-descriptions-item>
       </el-descriptions>
+
       <template #footer>
         <el-button @click="detailDialogVisible = false">关闭</el-button>
       </template>
@@ -90,18 +138,17 @@ import {
   revertWorkerApplication
 } from '@/api/admin'
 
+type ElTagType = 'success' | 'warning' | 'info' | 'danger' | 'primary'
+
 interface WorkerApplicationItem {
   applicationId: number
   userId: number
   realName?: string
   idCard?: string
   phone?: string
-  skillTitle?: string
   category?: string
   description?: string
   experience?: string
-  price?: number
-  unit?: string
   serviceArea?: string
   status: number
   rejectReason?: string
@@ -125,11 +172,12 @@ const currentApplication = ref<WorkerApplicationItem | null>(null)
 const loadApplications = async () => {
   loading.value = true
   try {
-    const data = await getAdminWorkerApplicationList({
+    const data = (await getAdminWorkerApplicationList({
       page: currentPage.value,
       size: pageSize.value,
       status: filterStatus.value ?? undefined
-    }) as WorkerPageResponse
+    })) as WorkerPageResponse
+
     applications.value = data?.records ?? []
     total.value = Number(data?.total ?? 0)
   } catch {
@@ -142,8 +190,8 @@ const loadApplications = async () => {
 
 watch([currentPage, pageSize], () => loadApplications())
 
-const getStatusType = (status: number) => {
-  const map: Record<number, string> = {
+const getStatusType = (status: number): ElTagType => {
+  const map: Record<number, ElTagType> = {
     0: 'warning',
     1: 'success',
     2: 'danger',
@@ -160,11 +208,6 @@ const getStatusText = (status: number) => {
     3: '已撤回'
   }
   return map[status] || '未知'
-}
-
-const formatPrice = (price?: number, unit?: string) => {
-  if (price === undefined || price === null) return '-'
-  return `¥${Number(price).toFixed(2)}/${unit || '次'}`
 }
 
 const handleFilter = () => {

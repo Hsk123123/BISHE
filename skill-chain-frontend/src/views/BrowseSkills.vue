@@ -206,7 +206,7 @@
       <div class="filter-panel">
         <div class="panel-header">
           <span>筛选条件</span>
-          <van-button type="primary" size="small" text @click="clearFilters">清除</van-button>
+          <van-button type="primary" size="small" plain @click="clearFilters">清除</van-button>
         </div>
 
         <div class="filter-group">

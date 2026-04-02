@@ -59,7 +59,7 @@
                     <van-image round width="42" height="42" :src="order.workerAvatar" />
                     <div class="worker-detail">
                       <span class="worker-name">{{ order.workerName }}</span>
-                      <span v-if="order.workerRating" class="worker-rating">
+                      <span v-if="order.workerRating !== null" class="worker-rating">
                         评分 {{ order.workerRating }}
                       </span>
                     </div>
@@ -72,10 +72,10 @@
 
               <div class="order-actions">
                 <template v-if="order.status === 0">
-                  <van-button size="small" round plain type="default" @click.stop="cancelOrder(order)">
+                  <van-button size="small" round plain type="default" @click.stop="cancelOrderAction(order)">
                     取消订单
                   </van-button>
-                  <van-button size="small" round type="primary" @click.stop="payOrder(order)">
+                  <van-button size="small" round type="primary" @click.stop="payOrderAction(order)">
                     立即支付
                   </van-button>
                 </template>
@@ -165,10 +165,10 @@
               </div>
 
               <div class="order-actions">
-                <van-button size="small" round plain type="default" @click.stop="cancelOrder(order)">
+                <van-button size="small" round plain type="default" @click.stop="cancelOrderAction(order)">
                   取消订单
                 </van-button>
-                <van-button size="small" round type="primary" @click.stop="payOrder(order)">
+                <van-button size="small" round type="primary" @click.stop="payOrderAction(order)">
                   立即支付
                 </van-button>
               </div>
@@ -226,7 +226,7 @@
                     <van-image round width="42" height="42" :src="order.workerAvatar" />
                     <div class="worker-detail">
                       <span class="worker-name">{{ order.workerName }}</span>
-                      <span v-if="order.workerRating" class="worker-rating">
+                      <span v-if="order.workerRating !== null" class="worker-rating">
                         评分 {{ order.workerRating }}
                       </span>
                     </div>
@@ -306,7 +306,7 @@
                   </span>
                 </div>
 
-                <div v-if="order.rating" class="rating-info">
+                <div v-if="order.rating !== null" class="rating-info">
                   <van-rate readonly :model-value="order.rating" size="14px" color="#ff976a" />
                   <span class="rating-text">{{ order.rating }}分</span>
                 </div>
@@ -453,7 +453,7 @@
                 <van-image round width="50" height="50" :src="selectedOrder.workerAvatar" />
                 <div class="worker-info">
                   <span class="name">{{ selectedOrder.workerName }}</span>
-                  <span v-if="selectedOrder.workerRating" class="rating">
+                  <span v-if="selectedOrder.workerRating !== null" class="rating">
                     评分 {{ selectedOrder.workerRating }}
                   </span>
                 </div>
@@ -494,10 +494,10 @@
 
         <div class="popup-actions">
           <template v-if="selectedOrder.status === 0">
-            <van-button block round plain type="default" @click="cancelOrder(selectedOrder)">
+            <van-button block round plain type="default" @click="cancelOrderAction(selectedOrder)">
               取消订单
             </van-button>
-            <van-button block round type="primary" @click="payOrder(selectedOrder)">
+            <van-button block round type="primary" @click="payOrderAction(selectedOrder)">
               立即支付
             </van-button>
           </template>
@@ -566,7 +566,7 @@
       </div>
     </van-dialog>
 
-    <van-tabbar v-model="activeTabbar" fixed>
+    <van-tabbar route fixed>
       <van-tabbar-item icon="home-o" to="/home">首页</van-tabbar-item>
       <van-tabbar-item icon="search" to="/browse">发现</van-tabbar-item>
       <van-tabbar-item icon="orders-o" to="/orders">订单</van-tabbar-item>
@@ -579,11 +579,17 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showSuccessToast, showFailToast } from 'vant'
-import { getOrderList, payOrder as apiPayOrder, cancelOrder as apiCancelOrder } from '@/api/order'
+import {
+  getOrderList,
+  payOrder as apiPayOrder,
+  cancelOrder as apiCancelOrder,
+  type OrderVO
+} from '@/api/order'
 import { createReview } from '@/api/review'
 
 interface Order {
   id: number
+  skillId: number | null
   orderNo: string
   skillTitle: string
   description: string
@@ -593,19 +599,27 @@ interface Order {
   address: string
   workerName: string
   workerAvatar: string
-  workerRating?: number
+  workerRating: number | null
   status: number
   createTime: string
   payTime?: string
   completeTime?: string
-  rating?: number
+  rating: number | null
   refundReason?: string
   remark?: string
 }
 
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string
+    }
+  }
+  message?: string
+}
+
 const router = useRouter()
 const activeTab = ref('all')
-const activeTabbar = ref(2)
 const showDetailPopup = ref(false)
 const showRatingDialog = ref(false)
 const showRefundDialog = ref(false)
@@ -625,14 +639,18 @@ const refundForm = ref({
 const orders = ref<Order[]>([])
 const orderLoading = ref(true)
 
+const defaultAvatar = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
+
 const loadOrders = async () => {
   orderLoading.value = true
   try {
-    const data = await getOrderList({ page: 1, size: 50 }) as { records?: Array<any> }
+    const data = await getOrderList({ page: 1, size: 50 })
     const records = data?.records ?? []
-    orders.value = records.map((r: any) => ({
-      id: r.orderId ?? r.id,
-      orderNo: `SC${String(r.orderId ?? r.id).padStart(8, '0')}`,
+
+    orders.value = records.map((r: OrderVO) => ({
+      id: r.orderId ?? 0,
+      skillId: r.skillId ?? null,
+      orderNo: `SC${String(r.orderId ?? 0).padStart(8, '0')}`,
       skillTitle: r.skillTitle ?? '技能服务',
       description: r.description ?? '',
       price: Number(r.amount ?? 0),
@@ -640,17 +658,19 @@ const loadOrders = async () => {
       serviceTime: r.timeSlot ?? '',
       address: r.location ?? '',
       workerName: r.workerName ?? '服务者',
-      workerAvatar: r.workerAvatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg',
-      workerRating: r.workerRating ?? undefined,
-      status: r.status ?? 0,
+      workerAvatar: r.workerAvatar || defaultAvatar,
+      workerRating: null,
+      status: Number(r.status ?? 0),
       createTime: r.createTime ?? '',
-      payTime: r.payTime ?? '',
-      completeTime: r.completeTime ?? '',
-      remark: r.remark ?? '',
-      rating: r.rating,
-      refundReason: r.refundReason
+      payTime: '',
+      completeTime: '',
+      remark: '',
+      rating: null,
+      refundReason: ''
     }))
-  } catch {
+  } catch (err) {
+    const error = err as ApiError
+    showToast(error?.response?.data?.message || error?.message || '加载失败')
     orders.value = []
   } finally {
     orderLoading.value = false
@@ -662,13 +682,15 @@ onMounted(() => {
 })
 
 const allOrders = computed(() => orders.value)
-const pendingOrders = computed(() => orders.value.filter(o => o.status === 0))
-const serviceOrders = computed(() => orders.value.filter(o => o.status === 2 || o.status === 3))
-const completedOrders = computed(() => orders.value.filter(o => o.status === 5))
-const refundOrders = computed(() => orders.value.filter(o => o.status === 6 || o.status === 7 || o.status === 8))
+const pendingOrders = computed(() => orders.value.filter((o) => o.status === 0))
+const serviceOrders = computed(() => orders.value.filter((o) => [1, 2, 3, 4].includes(o.status)))
+const completedOrders = computed(() => orders.value.filter((o) => o.status === 5))
+const refundOrders = computed(() => orders.value.filter((o) => [6, 7, 8].includes(o.status)))
 
-const getStatusType = (status: number): string => {
-  const types: Record<number, string> = {
+type OrderTagType = 'primary' | 'success' | 'warning' | 'danger' | 'default'
+
+const getStatusType = (status: number): OrderTagType => {
+  const types: Record<number, OrderTagType> = {
     0: 'warning',
     1: 'primary',
     2: 'primary',
@@ -679,7 +701,7 @@ const getStatusType = (status: number): string => {
     7: 'danger',
     8: 'default'
   }
-  return types[status] || 'default'
+  return types[status] ?? 'default'
 }
 
 const getStatusText = (status: number): string => {
@@ -720,26 +742,32 @@ const contactWorker = (order: Order) => {
   showToast(`联系服务者: ${order.workerName}`)
 }
 
-const payOrder = async (order: Order) => {
+const payOrderAction = async (order: Order) => {
   try {
     await apiPayOrder(order.id)
     showSuccessToast('支付成功！')
-    loadOrders()
+    await loadOrders()
   } catch (err) {
-    showToast((err as Error)?.message || '支付失败')
+    const error = err as ApiError
+    showToast(error?.response?.data?.message || error?.message || '支付失败')
   }
 }
 
-const cancelOrder = async (order: Order) => {
+const cancelOrderAction = async (order: Order) => {
   try {
     await apiCancelOrder(order.id)
     showSuccessToast('订单已取消')
-    loadOrders()
+    await loadOrders()
   } catch (err) {
-    showToast((err as Error)?.message || '取消失败')
+    const error = err as ApiError
+    showToast(error?.response?.data?.message || error?.message || '取消失败')
   }
 }
 
+/**
+ * 这里当前仍是前端占位逻辑。
+ * 如果你后端后续补了“买家确认完成”接口，再把这里改成真实 API 调用即可。
+ */
 const confirmService = (order: Order) => {
   showSuccessToast('确认服务完成！')
   order.status = 4
@@ -752,16 +780,22 @@ const applyRefund = (order: Order) => {
   showRefundDialog.value = true
 }
 
+/**
+ * 这里当前仍是前端占位逻辑。
+ * 如果你后端补了退款申请接口，再替换为真实请求。
+ */
 const submitRefund = () => {
   if (!refundForm.value.reason.trim()) {
     showFailToast('请输入退款原因')
     return
   }
+
   if (refundOrder.value) {
     refundOrder.value.status = 6
-    refundOrder.value.refundReason = refundForm.value.reason
+    refundOrder.value.refundReason = refundForm.value.reason.trim()
     showSuccessToast('退款申请已提交')
   }
+
   showRefundDialog.value = false
 }
 
@@ -774,6 +808,7 @@ const rateOrder = (order: Order) => {
 
 const submitRating = async () => {
   if (!ratingOrder.value) return
+
   try {
     await createReview({
       orderId: ratingOrder.value.id,
@@ -782,19 +817,23 @@ const submitRating = async () => {
     })
     showSuccessToast('评价成功！')
     showRatingDialog.value = false
-    loadOrders()
+    await loadOrders()
   } catch (err) {
-    showToast((err as Error)?.message || '评价失败')
+    const error = err as ApiError
+    showToast(error?.response?.data?.message || error?.message || '评价失败')
   }
 }
 
-const viewReceipt = (order: Order) => {
+const viewReceipt = (_order: Order) => {
   showToast('查看收据功能开发中')
 }
 
 const rebook = (order: Order) => {
-  showToast(`再次预约: ${order.skillTitle}`)
-  router.push(`/skill/${order.id}`)
+  if (!order.skillId) {
+    showToast('未找到技能信息')
+    return
+  }
+  router.push(`/skill/${order.skillId}`)
 }
 </script>
 
