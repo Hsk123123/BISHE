@@ -1,8 +1,10 @@
 package com.skillchain.filter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skillchain.entity.User;
 import com.skillchain.utils.JwtUtil;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,7 +18,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
@@ -32,7 +36,17 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
         if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
             token = authorizationHeader.substring(7);
-            username = jwtUtil.getUsernameFromToken(token);
+            try {
+                username = jwtUtil.getUsernameFromToken(token);
+            } catch (ExpiredJwtException e) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json;charset=UTF-8");
+                Map<String, Object> result = new HashMap<>();
+                result.put("code", 401);
+                result.put("message", "token已过期");
+                new ObjectMapper().writeValue(response.getWriter(), result);
+                return;
+            }
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
