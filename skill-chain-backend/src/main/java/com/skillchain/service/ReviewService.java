@@ -9,6 +9,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 public class ReviewService {
 
@@ -19,16 +22,21 @@ public class ReviewService {
     private OrderService orderService;
 
     public Page<Review> getReviewsBySkillId(Long skillId, Integer page, Integer size) {
-        // 按订单关联的技能查询评价 - 需要 join order
         Page<Review> pageInfo = new Page<>(page, size);
+        List<Long> orderIds = orderService.getOrdersBySkillId(skillId)
+                .stream().map(Order::getOrderId).collect(Collectors.toList());
+        if (orderIds.isEmpty()) {
+            return pageInfo;
+        }
         return reviewMapper.selectPage(pageInfo, new LambdaQueryWrapper<Review>()
+                .in(Review::getOrderId, orderIds)
                 .orderByDesc(Review::getCreateTime));
     }
 
     public Page<Review> getReviewsByProviderId(Long providerId, Integer page, Integer size) {
-        // 简化：查询所有评价，后续可加 provider_id 条件
         Page<Review> pageInfo = new Page<>(page, size);
         return reviewMapper.selectPage(pageInfo, new LambdaQueryWrapper<Review>()
+                .eq(Review::getProviderId, providerId)
                 .orderByDesc(Review::getCreateTime));
     }
 

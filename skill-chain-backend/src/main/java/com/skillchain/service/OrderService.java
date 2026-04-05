@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -36,6 +37,12 @@ public class OrderService {
 
     @Autowired
     private TransactionLogService transactionLogService;
+
+    public List<Order> getOrdersBySkillId(Long skillId) {
+        return orderMapper.selectList(
+                new LambdaQueryWrapper<Order>().eq(Order::getSkillId, skillId)
+        );
+    }
 
     public Page<Order> getOrderList(Long userId, Integer status, Integer page, Integer size) {
         Page<Order> pageInfo = new Page<>(page, size);
