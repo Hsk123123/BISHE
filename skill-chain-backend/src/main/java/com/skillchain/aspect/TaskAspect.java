@@ -11,6 +11,8 @@ import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -31,11 +33,12 @@ public class TaskAspect {
     @AfterReturning("@annotation(com.skillchain.aspect.TaskTrigger) && @annotation(taskTrigger)")
     public void handleTaskTrigger(JoinPoint joinPoint, TaskTrigger taskTrigger) {
         String action = taskTrigger.action();
-        HttpServletRequest request = getRequest(joinPoint);
-        if (request == null) {
+
+        ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attrs == null) {
             return;
         }
-
+        HttpServletRequest request = attrs.getRequest();
         Long userId = (Long) request.getAttribute("userId");
         if (userId == null) {
             return;
@@ -81,13 +84,4 @@ public class TaskAspect {
         userTaskMapper.updateById(userTask);
     }
 
-    private HttpServletRequest getRequest(JoinPoint joinPoint) {
-        Object[] args = joinPoint.getArgs();
-        for (Object arg : args) {
-            if (arg instanceof HttpServletRequest) {
-                return (HttpServletRequest) arg;
-            }
-        }
-        return null;
-    }
 }
