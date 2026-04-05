@@ -85,3 +85,7 @@ export const startServiceOrder = (id: number | string): Promise<null> => {
 export const completeServiceOrder = (id: number | string): Promise<null> => {
   return request.post(`/order/${id}/complete`)
 }
+
+export const refundOrder = (id: number | string): Promise<null> => {
+  return request.post(`/order/${id}/refund`)
+}

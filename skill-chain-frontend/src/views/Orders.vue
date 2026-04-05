@@ -84,9 +84,6 @@
                   <van-button size="small" round plain type="danger" @click.stop="applyRefund(order)">
                     申请退款
                   </van-button>
-                  <van-button size="small" round type="primary" @click.stop="confirmService(order)">
-                    确认完成
-                  </van-button>
                 </template>
 
                 <template v-else-if="order.status === 4">
@@ -252,9 +249,6 @@
               <div class="order-actions">
                 <van-button size="small" round plain type="danger" @click.stop="applyRefund(order)">
                   申请退款
-                </van-button>
-                <van-button size="small" round type="primary" @click.stop="confirmService(order)">
-                  确认完成
                 </van-button>
               </div>
             </div>
@@ -506,9 +500,6 @@
             <van-button block round plain type="danger" @click="applyRefund(selectedOrder)">
               申请退款
             </van-button>
-            <van-button block round type="primary" @click="confirmService(selectedOrder)">
-              确认完成
-            </van-button>
           </template>
 
           <template v-else-if="selectedOrder.status === 4">
@@ -583,6 +574,7 @@ import {
   getOrderList,
   payOrder as apiPayOrder,
   cancelOrder as apiCancelOrder,
+  refundOrder as apiRefundOrder,
   type OrderVO
 } from '@/api/order'
 import { createReview } from '@/api/review'
@@ -764,39 +756,24 @@ const cancelOrderAction = async (order: Order) => {
   }
 }
 
-/**
- * 这里当前仍是前端占位逻辑。
- * 如果你后端后续补了“买家确认完成”接口，再把这里改成真实 API 调用即可。
- */
-const confirmService = (order: Order) => {
-  showSuccessToast('确认服务完成！')
-  order.status = 4
-  order.completeTime = new Date().toLocaleString()
-}
-
 const applyRefund = (order: Order) => {
   refundOrder.value = order
   refundForm.value.reason = ''
   showRefundDialog.value = true
 }
 
-/**
- * 这里当前仍是前端占位逻辑。
- * 如果你后端补了退款申请接口，再替换为真实请求。
- */
-const submitRefund = () => {
-  if (!refundForm.value.reason.trim()) {
-    showFailToast('请输入退款原因')
-    return
-  }
+const submitRefund = async () => {
+  if (!refundOrder.value) return
 
-  if (refundOrder.value) {
-    refundOrder.value.status = 6
-    refundOrder.value.refundReason = refundForm.value.reason.trim()
+  try {
+    await apiRefundOrder(refundOrder.value.id)
     showSuccessToast('退款申请已提交')
+    showRefundDialog.value = false
+    await loadOrders()
+  } catch (err) {
+    const error = err as ApiError
+    showFailToast(error?.response?.data?.message || error?.message || '退款申请失败')
   }
-
-  showRefundDialog.value = false
 }
 
 const rateOrder = (order: Order) => {
