@@ -63,9 +63,14 @@ public class OrderController {
     public Result<Void> payOrder(@PathVariable Long id, HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
         Order order = orderService.getOrderById(id);
+
+        if (order == null) {
+            return Result.error("订单不存在");
+        }
         if (!order.getBuyerId().equals(userId)) {
             return Result.error("无权操作");
         }
+
         orderService.payOrder(id);
         return Result.success("支付成功", null);
     }
@@ -99,7 +104,17 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/refund")
-    public Result<Void> refundOrder(@PathVariable Long id) {
+    public Result<Void> refundOrder(@PathVariable Long id, HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        Order order = orderService.getOrderById(id);
+
+        if (order == null) {
+            return Result.error("订单不存在");
+        }
+        if (!order.getBuyerId().equals(userId)) {
+            return Result.error("无权操作");
+        }
+
         orderService.refundOrder(id);
         return Result.success("退款成功", null);
     }

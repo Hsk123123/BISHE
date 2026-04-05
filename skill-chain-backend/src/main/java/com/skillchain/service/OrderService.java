@@ -106,12 +106,29 @@ public class OrderService {
         return order;
     }
 
+    // 支付流程在同一事务中执行，确保扣款、流水、状态更新要么全部成功，要么全部回滚
     @Transactional
     public void payOrder(Long orderId) {
         Order order = getOrderById(orderId);
         if (order == null) {
             throw new BusinessException("订单不存在");
         }
+
+        if (!order.getStatus().equals(OrderStatus.PENDING_PAYMENT.getCode())) {
+            throw new BusinessException("当前订单状态无法支付");
+        }
+
+        System.out.println("【支付】订单ID：" + orderId + "，金额：" + order.getAmount());
+
+        walletService.deductCoin(order.getBuyerId(), order.getAmount());
+
+        transactionLogService.createTransactionLog(
+                order.getBuyerId(),
+                1,
+                order.getAmount(),
+                order.getCurrencyType(),
+                "订单支付，订单ID：" + order.getOrderId()
+        );
 
         OrderState state = OrderStateFactory.getState(OrderStatus.fromCode(order.getStatus()));
         state.pay(this, order);

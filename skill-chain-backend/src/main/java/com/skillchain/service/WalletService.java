@@ -2,6 +2,7 @@ package com.skillchain.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.skillchain.entity.Wallet;
+import com.skillchain.exception.BusinessException;
 import com.skillchain.mapper.WalletMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -39,9 +40,16 @@ public class WalletService {
     @Transactional
     public void deductCoin(Long userId, BigDecimal amount) {
         Wallet wallet = getWalletByUserId(userId);
-        if (wallet.getCnyCoinBalance().compareTo(amount) < 0) {
-            throw new RuntimeException("余额不足");
+        if (wallet == null) {
+            throw new BusinessException("钱包不存在");
         }
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("扣款金额不合法");
+        }
+        if (wallet.getCnyCoinBalance() == null || wallet.getCnyCoinBalance().compareTo(amount) < 0) {
+            throw new BusinessException("余额不足");
+        }
+
         wallet.setCnyCoinBalance(wallet.getCnyCoinBalance().subtract(amount));
         walletMapper.updateById(wallet);
     }

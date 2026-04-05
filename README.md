@@ -1,264 +1,242 @@
-# 技能链 - 游戏化技能共享预约平台
+# SkillChain 技能链 — 技能服务交易平台
 
-## 项目简介
+基于 Spring Boot + Vue 3 构建的技能服务预约交易平台，支持用户浏览技能、预约下单、在线支付，商家发布服务、接单执行，管理员审核管理的完整业务闭环。
 
-基于 Spring Boot + Vue 3 的个人工作室预约服务平台，采用双币经济模型、游戏化任务激励、即时预约排期算法等核心亮点。
+---
 
 ## 技术栈
 
 ### 后端
-- Spring Boot 3.2.0
-- MyBatis Plus 3.5.5
-- MySQL 8.0
-- Redis
-- JWT
-- MinIO (文件存储)
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| Spring Boot | 3.1.5 | 主框架 |
+| Spring Security | 6.x | 安全认证 |
+| MyBatis Plus | 3.5.5 | ORM / 数据访问 |
+| MySQL | 8.0 | 主数据库 |
+| JWT (jjwt) | 0.12.3 | 无状态鉴权 |
+| MinIO | 8.6.0 | 文件存储 |
+| Redis | 6.0+ | 缓存（可选） |
 
 ### 前端
-- Vue 3.3.11
-- TypeScript
-- Vite 5.0.8
-- Vant UI (移动端)
-- Element Plus (后台管理)
-- Pinia (状态管理)
-- Vue Router 4.2.5
-- Axios
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| Vue 3 | 3.3.11 | 主框架 |
+| TypeScript | 5.3.3 | 类型安全 |
+| Vite | 5.0.8 | 构建工具 |
+| Pinia | 2.1.7 | 状态管理 |
+| Vue Router | 4.2.5 | 前端路由 |
+| Vant | 4.8.1 | 移动端 UI |
+| Element Plus | 2.4.4 | 管理后台 UI |
+| Axios | 1.6.2 | HTTP 请求 |
+
+### 设计模式 / 工程亮点
+- **状态机模式**（State Pattern）：订单全生命周期管理
+- **AOP 切面**：任务积分触发系统
+- **事务控制**：支付/退款保证原子性
+- **双权限拦截**：JWT Filter + Admin Interceptor
+
+---
+
+## 三种角色
+
+| 角色 | 权限 | 说明 |
+|------|------|------|
+| 普通用户（role=0） | 浏览、预约、支付、评价 | 注册后默认角色 |
+| 商家/服务者（role=1） | 发布技能、接单、提现 | 申请审核通过后升级 |
+| 管理员（role=2） | 全平台管理 | 审核技能、订单监控、财务管理 |
+
+---
+
+## 核心功能
+
+### 用户端
+- 注册 / 登录（JWT，无状态）
+- 技能浏览、搜索、分类筛选
+- 技能详情 + 时间段预约
+- 订单管理（待支付 → 待接单 → 服务中 → 待评价 → 已完成）
+- 在线支付（钱包扣款 + 交易流水）
+- 评价系统
+- 钱包余额查看、提现申请
+- 每日签到积分
+- 实名认证申请
+
+### 商家端
+- 技能发布与管理
+- 接单 / 开始服务 / 完成服务
+- 收益统计与提现
+- 排期管理（时间槽机制）
+
+### 管理后台
+- 用户管理（封禁 / 启用）
+- 技能审核（上架 / 下架）
+- 订单监控
+- 评价管理
+- 提现审批（通过 / 拒绝）
+- 公告管理
+- 商家入驻审核
+- 财务报表
+
+---
+
+## 系统亮点
+
+### 1. 订单状态机（State Pattern）
+
+订单共 9 个状态，通过 `OrderState` 接口 + 6 个 State 实现类管理流转，杜绝非法状态跳转：
+
+```
+待支付(0) →[pay]→ 待接单(1) →[accept]→ 已接单(2)
+         →[startService]→ 服务中(3) →[complete]→ 待评价(4)
+         →[createReview]→ 已完成(5)
+任意阶段  →[cancel/refund]→ 已取消(8) / 退款中(6) / 已退款(7)
+```
+
+核心类：`OrderStateFactory`、`PendingPaymentState`、`AcceptedState`、`InServiceState` 等。
+
+### 2. 支付闭环（事务保证一致性）
+
+`OrderService.payOrder()` 使用 `@Transactional`，在同一事务中完成：
+1. 钱包余额扣减（`WalletService.deductCoin`）
+2. 写交易流水（`TransactionLogService.createTransactionLog`）
+3. 订单状态更新（`PENDING_PAYMENT → PENDING_ACCEPT`）
+
+任意步骤异常，全部回滚。
+
+### 3. AOP 任务积分系统
+
+通过自定义注解 `@TaskTrigger` + `TaskAspect` 切面，在完成订单等关键动作后自动触发积分奖励，业务代码与激励逻辑完全解耦。
+
+### 4. 双权限拦截
+
+- `JwtAuthenticationFilter`：解析 Token，将 `userId` 注入 request attribute
+- `AdminInterceptor`：拦截 `/admin/**`，校验 role = 2
+- `JwtInterceptor`：拦截需登录接口，校验 Token 有效性
+
+### 5. 双货币体系
+
+- **CNY 挂钩币**：用于核心交易（支付、提现），严格事务控制
+- **积分**：用于激励（签到、完成订单），可用于积分商城
+
+---
 
 ## 项目结构
 
 ```
-skill-chain/
-├── skill-chain-backend/          # 后端项目
-│   ├── src/main/java/com/skillchain/
-│   │   ├── controller/           # 控制器层
-│   │   ├── service/              # 服务层
-│   │   ├── mapper/               # 数据访问层
-│   │   ├── entity/               # 实体类
-│   │   ├── dto/                  # 数据传输对象
-│   │   ├── vo/                   # 视图对象
-│   │   ├── config/               # 配置类
-│   │   ├── utils/                # 工具类
-│   │   ├── aspect/               # 切面
-│   │   ├── enums/                # 枚举
-│   │   ├── exception/            # 异常
-│   │   └── common/               # 公共类
-│   └── src/main/resources/
-│       ├── application.yml       # 配置文件
-│       └── schema.sql            # 数据库脚本
+bishe1/
+├── skill-chain-backend/                # Spring Boot 后端
+│   └── src/main/java/com/skillchain/
+│       ├── controller/                 # REST 控制器（22个）
+│       ├── service/                    # 业务逻辑层（20个）
+│       │   ├── state/                  # 订单状态机（6个State类）
+│       │   └── impl/                   # UserDetailsService 实现
+│       ├── mapper/                     # MyBatis Plus Mapper（15个）
+│       ├── entity/                     # 数据库实体（15张表）
+│       ├── dto/                        # 请求数据传输对象
+│       ├── vo/                         # 响应视图对象
+│       ├── aspect/                     # AOP 切面（任务系统）
+│       ├── config/                     # Spring 配置类
+│       ├── filter/                     # JWT 过滤器
+│       ├── enums/                      # 枚举（OrderStatus、UserRole）
+│       ├── exception/                  # 全局异常处理
+│       └── common/                     # 统一响应 Result<T>
 │
-└── skill-chain-frontend/         # 前端项目
-    ├── src/
-    │   ├── api/                  # API接口
-    │   ├── assets/               # 静态资源
-    │   ├── components/           # 组件
-    │   ├── router/               # 路由
-    │   ├── store/                # 状态管理
-    │   ├── types/                # 类型定义
-    │   ├── utils/                # 工具类
-    │   ├── views/                # 页面
-    │   │   ├── admin/            # 后台管理页面
-    │   │   ├── Home.vue          # 首页
-    │   │   ├── Discover.vue      # 发现页
-    │   │   ├── SkillDetail.vue   # 技能详情
-    │   │   ├── Orders.vue        # 订单页
-    │   │   ├── Profile.vue       # 个人中心
-    │   │   ├── Wallet.vue        # 钱包
-    │   │   ├── Login.vue         # 登录
-    │   │   └── Register.vue      # 注册
-    │   ├── App.vue               # 根组件
-    │   └── main.ts               # 入口文件
-    ├── package.json
-    ├── vite.config.ts
-    └── tsconfig.json
+└── skill-chain-frontend/               # Vue 3 前端
+    └── src/
+        ├── api/                        # Axios 接口封装（8个模块）
+        ├── views/                      # 页面（50个）
+        │   └── admin/                  # 管理后台页面（11个）
+        ├── store/                      # Pinia Store（user）
+        ├── router/                     # Vue Router（25+路由）
+        ├── utils/request.ts            # Axios 拦截器
+        ├── i18n/                       # 中英文国际化
+        └── components/                 # 公共组件
 ```
 
-## 数据库设计
+---
 
-### 核心表结构
+## 数据库主要表
 
-1. **user** - 用户表
-2. **wallet** - 钱包表（双币系统：CNY挂钩币 + 积分）
-3. **decoration** - 虚拟装饰表
-4. **skill** - 技能表
-5. **schedule** - 排期表（时间槽机制）
-6. **order** - 订单表
-7. **transaction_log** - 交易流水表
-8. **task** - 任务字典表
-9. **user_task** - 用户任务进度表
-10. **review** - 评价表
-11. **appeal** - 申诉表
-12. **system_config** - 系统配置表
+| 表名 | 说明 |
+|------|------|
+| user | 用户账号（含角色字段） |
+| wallet | 双币钱包（CNY币 + 积分） |
+| skill | 技能服务信息 |
+| schedule | 时间段排期 |
+| order | 订单（含状态机字段） |
+| review | 评价记录 |
+| transaction_log | 交易流水 |
+| withdrawal_request | 提现申请 |
+| worker_application | 商家入驻申请 |
+| task / user_task | 任务系统 |
+| notice | 系统公告 |
+| category | 技能分类 |
 
-## 核心功能
+---
 
-### 1. 用户门户模块
-- 用户注册/登录（JWT认证）
-- 个人中心（资料管理、实名认证）
-- 虚拟装饰系统（头像框、头衔）
-- 钱包系统（双币：CNY挂钩币 + 积分）
-- 每日签到（Redis BitMap）
-- 技能搜索与浏览
-- 预约下单
-- 订单管理
-- 评价系统
-
-### 2. 个人工作者模块
-- 入驻与认证
-- 技能发布与管理
-- 排期与日历管理（时间槽Time Slot）
-- 订单处理（接单/拒单/核销）
-- 收益与提现（含手续费）
-- 数据看板
-- 客户维护
-
-### 3. 经济运营模块
-- **双币引擎**：
-  - CNY挂钩币：用于核心交易，严格事务控制
-  - 积分：通胀模型，用于购买虚拟装饰
-- **任务系统**（AOP实现）：
-  - 每日登录
-  - 浏览技能
-  - 完成订单
-  - 发布评价
-- 积分商城
-
-### 4. 后台管理模块
-- 用户管理与审核
-- 技能内容审核
-- 订单监控与仲裁
-- 财务报表与提现审批
-- 系统配置管理
-
-## 快速开始
+## 启动方式
 
 ### 环境要求
+
 - JDK 17+
 - Node.js 18+
 - MySQL 8.0+
-- Redis 6.0+
+- Redis 6.0+（可选，不启动 Redis 可使用 `application-no-redis.yml`）
 
 ### 后端启动
 
-1. 创建数据库并执行SQL脚本：
+**1. 初始化数据库**
+
 ```bash
-mysql -u root -p < skill-chain-backend/src/main/resources/schema.sql
+mysql -u root -p
+CREATE DATABASE skill_chain CHARACTER SET utf8mb4;
+USE skill_chain;
+source skill-chain-backend/src/main/resources/schema.sql
 ```
 
-2. 修改配置文件 `application.yml`：
+**2. 修改配置文件** `skill-chain-backend/src/main/resources/application.yml`
+
 ```yaml
 spring:
   datasource:
     url: jdbc:mysql://localhost:3306/skill_chain
     username: root
-    password: your_password
-  data:
-    redis:
-      host: localhost
-      port: 6379
+    password: 你的密码
 ```
 
-3. 启动后端服务：
+**3. 启动**
+
 ```bash
 cd skill-chain-backend
 mvn spring-boot:run
 ```
 
-后端服务将在 `http://localhost:8080/api` 启动
+后端运行在：`http://localhost:8081/api`
+
+---
 
 ### 前端启动
 
-1. 安装依赖：
 ```bash
 cd skill-chain-frontend
 npm install
-```
-
-2. 启动开发服务器：
-```bash
 npm run dev
 ```
 
-前端服务将在 `http://localhost:3000` 启动
+前端运行在：`http://localhost:3000`
 
-## 技术亮点
+> API 代理已在 `vite.config.ts` 配置，自动转发到 `localhost:8081`，无需手动修改。
 
-1. **双币经济模型**
-   - CNY挂钩币：严格事务控制，用于核心交易
-   - 积分：通胀模型，用于娱乐消费
+---
 
-2. **游戏化任务系统**
-   - 使用Spring AOP实现任务触发
-   - 自动发放积分奖励
-   - Redis BitMap实现每日签到
+## 当前已知限制
 
-3. **即时预约排期算法**
-   - 时间槽（Time Slot）机制
-   - 可视化日历组件
-   - 并发安全控制
+- **支付为模拟支付**：钱包余额为平台内部虚拟货币，不对接真实第三方支付
+- **文件上传依赖 MinIO**：未配置 MinIO 时，头像上传等功能不可用
+- **签到状态存内存**：服务重启后当日签到记录清空（生产环境应改为 Redis 持久化）
+- **退款为人工审核**：管理员在后台手动处理提现/退款，无自动化流程
 
-4. **状态机订单管理**
-   - 使用状态模式管理订单状态流转
-   - 支持退款、仲裁等复杂场景
+---
 
-5. **虚拟装饰系统**
-   - 用户可购买和佩戴头像框、头衔
-   - 前端CSS覆盖或Canvas合成
+## License
 
-## 开发进度（按当前代码仓库，更新于 2026-03-19）
-
-- [x] 项目初始化与环境搭建
-- [x] 数据库设计与基础表结构（`schema.sql` 等）
-- [x] 用户认证与权限模块（登录/注册、JWT、权限拦截）
-- [x] 个人中心相关功能（资料、地址、密码、认证页面与接口）
-- [x] 技能与服务展示模块（技能发布、浏览、详情、评价、我的技能）
-- [x] 订单主流程（创建、接单、服务中、完成、评价）与钱包/提现基础流程
-- [x] 游戏化任务基础能力（任务字典、用户任务进度、AOP 触发）
-- [x] 后台管理基础功能（用户、技能、订单、评价、财务、公告、审核）
-- [ ] 第三方支付等生产级支付闭环（风控、回调对账、异常补偿）
-- [ ] 自动化测试与性能优化（目前仅基础测试骨架，需补齐集成/压力测试）
-
-> 说明：以上为“代码层面已具备的功能覆盖”，并不等同于“全部业务细节已联调验收完成”。
-
-## API文档
-
-### 认证接口
-- POST `/api/auth/login` - 用户登录
-- POST `/api/auth/register` - 用户注册
-- GET `/api/auth/info` - 获取用户信息
-- PUT `/api/auth/profile` - 更新用户资料
-
-### 技能接口
-- GET `/api/skill/list` - 获取技能列表
-- GET `/api/skill/{id}` - 获取技能详情
-- POST `/api/skill/publish` - 发布技能
-- PUT `/api/skill/{id}` - 更新技能
-
-### 订单接口
-- POST `/api/order/create` - 创建订单
-- GET `/api/order/list` - 获取订单列表
-- PUT `/api/order/{id}/accept` - 接单
-- PUT `/api/order/{id}/complete` - 完成订单
-
-## 论文素材
-
-### 系统架构图
-- 前后端分离架构
-- 微服务架构设计
-
-### ER图
-- 用户-技能-订单关系图
-- 钱包-交易流水关系图
-
-### 核心代码片段
-- AOP任务切面实现
-- 支付事务控制
-- 时间槽排期算法
-- 状态机订单管理
-
-## 许可证
-
-MIT License
-
-## 联系方式
-
-如有问题，请联系：your-email@example.com
+MIT
