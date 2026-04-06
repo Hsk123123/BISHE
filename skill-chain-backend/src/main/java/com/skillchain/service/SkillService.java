@@ -73,17 +73,21 @@ public class SkillService {
 
     @Transactional
     public void publishSkillWithSchedules(Long providerId, PublishSkillRequest request) {
-        if (request.getSchedules() == null || request.getSchedules().isEmpty()) {
-            throw new BusinessException("请至少添加一个可预约时间段");
-        }
+        // 前端未传时兜底为预约型
+        int scheduleRequired = request.getScheduleRequired() != null ? request.getScheduleRequired() : 1;
 
-        java.util.Set<String> seen = new java.util.HashSet<>();
-        for (PublishSkillRequest.ScheduleItem item : request.getSchedules()) {
-            String key = item.getDate() + "|" + item.getTimeSlot();
-            if (seen.contains(key)) {
-                throw new BusinessException("存在重复的时间段：" + item.getDate() + " " + item.getTimeSlot());
+        if (scheduleRequired == 1) {
+            if (request.getSchedules() == null || request.getSchedules().isEmpty()) {
+                throw new BusinessException("请至少添加一个可预约时间段");
             }
-            seen.add(key);
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            for (PublishSkillRequest.ScheduleItem item : request.getSchedules()) {
+                String key = item.getDate() + "|" + item.getTimeSlot();
+                if (seen.contains(key)) {
+                    throw new BusinessException("存在重复的时间段：" + item.getDate() + " " + item.getTimeSlot());
+                }
+                seen.add(key);
+            }
         }
 
         Skill skill = new Skill();
@@ -93,6 +97,7 @@ public class SkillService {
         skill.setDescription(request.getDescription());
         skill.setPricePerUnit(request.getPricePerUnit() != null ? BigDecimal.valueOf(request.getPricePerUnit()) : null);
         skill.setUnitType(request.getUnitType());
+        skill.setScheduleRequired(scheduleRequired);
         skill.setServiceMode(request.getServiceMode());
         skill.setMediaUrls(request.getMediaUrls());
         skill.setStatus(0);
@@ -100,17 +105,45 @@ public class SkillService {
 
         Long skillId = skill.getSkillId();
 
-        for (PublishSkillRequest.ScheduleItem item : request.getSchedules()) {
-            Schedule schedule = new Schedule();
-            schedule.setProviderId(providerId);
-            schedule.setSkillId(skillId);
-            schedule.setDate(item.getDate());
-            schedule.setTimeSlot(item.getTimeSlot());
-            schedule.setLocation(item.getLocation());
-            schedule.setStatus(0);
-            schedule.setDeleted(0);
-            scheduleMapper.insert(schedule);
+        if (scheduleRequired == 1 && request.getSchedules() != null) {
+            for (PublishSkillRequest.ScheduleItem item : request.getSchedules()) {
+                Schedule schedule = new Schedule();
+                schedule.setProviderId(providerId);
+                schedule.setSkillId(skillId);
+                schedule.setDate(item.getDate());
+                schedule.setTimeSlot(item.getTimeSlot());
+                schedule.setLocation(item.getLocation());
+                schedule.setStatus(0);
+                schedule.setDeleted(0);
+                scheduleMapper.insert(schedule);
+            }
         }
+    }
+
+    @Transactional
+    public void updateStatus(Long providerId, Long skillId, Integer newStatus) {
+        if (newStatus != 1 && newStatus != 2) {
+            throw new BusinessException("状态值非法，只允许 1（上架）或 2（下架）");
+        }
+        Skill existSkill = skillMapper.selectById(skillId);
+        if (existSkill == null) {
+            throw new BusinessException("技能不存在");
+        }
+        if (!existSkill.getProviderId().equals(providerId)) {
+            throw new BusinessException(403, "无权操作");
+        }
+        Integer currentStatus = existSkill.getStatus();
+        if (currentStatus == 0) {
+            throw new BusinessException("审核中的技能不允许手动修改状态");
+        }
+        if (currentStatus.equals(newStatus)) {
+            throw new BusinessException("技能已是目标状态，无需操作");
+        }
+
+        Skill update = new Skill();
+        update.setSkillId(skillId);
+        update.setStatus(newStatus);
+        skillMapper.updateById(update);
     }
 
     @Transactional

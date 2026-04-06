@@ -56,6 +56,22 @@ public class SkillController {
         return Result.success("Published", null);
     }
 
+    @PostMapping("/{id}/status")
+    public Result<Void> updateSkillStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request
+    ) {
+        Long providerId = (Long) request.getAttribute("userId");
+        Object statusObj = body.get("status");
+        if (statusObj == null) {
+            return Result.error("status 参数不能为空");
+        }
+        Integer status = Integer.valueOf(statusObj.toString());
+        skillService.updateStatus(providerId, id, status);
+        return Result.success("Status updated", null);
+    }
+
     @PutMapping("/{id}")
     public Result<Void> updateSkill(@PathVariable Long id, @RequestBody Skill skill, HttpServletRequest request) {
         Long providerId = (Long) request.getAttribute("userId");

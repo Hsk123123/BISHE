@@ -11,6 +11,7 @@ public class PublishSkillRequest {
     private String description;
     private Double pricePerUnit;
     private Integer unitType;
+    private Integer scheduleRequired;
     private Integer serviceMode;
     private String mediaUrls;
     private List<ScheduleItem> schedules;

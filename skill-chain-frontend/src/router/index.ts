@@ -51,6 +51,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/MySkills.vue')
   },
   {
+    path: '/edit-skill/:id',
+    name: 'EditSkill',
+    component: () => import('@/views/EditSkill.vue')
+  },
+  {
     path: '/skill-orders',
     name: 'SkillOrders',
     component: () => import('@/views/SkillOrders.vue')
@@ -183,7 +188,8 @@ router.beforeEach((to, from, next) => {
   }
 
   const workerOnlyPaths = ['/publish-skill', '/my-skills', '/skill-orders', '/earnings']
-  const isWorkerOnlyRoute = workerOnlyPaths.includes(to.path)
+  const isWorkerOnlyRoute = workerOnlyPaths.includes(to.path) ||
+    (typeof to.name === 'string' && to.name === 'EditSkill')
   const isWorkerApplicationRoute = to.path === '/worker-application'
 
   if (!token && (to.path.startsWith('/admin') || isWorkerOnlyRoute || isWorkerApplicationRoute)) {

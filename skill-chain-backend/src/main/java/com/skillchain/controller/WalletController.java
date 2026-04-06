@@ -26,7 +26,7 @@ public class WalletController {
     @GetMapping
     public Result<Wallet> getWallet(HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
-        Wallet wallet = walletService.getWalletByUserId(userId);
+        Wallet wallet = walletService.getOrCreateWallet(userId);
         return Result.success(wallet);
     }
 

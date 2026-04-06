@@ -93,9 +93,9 @@
         <div v-else class="empty-inline">请选择日期后查看可用时段</div>
       </div>
 
-      <div class="section-card" v-if="skill.reviews && skill.reviews.length > 0">
+      <div class="section-card">
         <div class="section-title">用户评价</div>
-        <div class="reviews">
+        <div v-if="skill.reviews && skill.reviews.length > 0" class="reviews">
           <div v-for="review in skill.reviews" :key="review.id" class="review-item">
             <div class="review-header">
               <div class="review-left">
@@ -110,6 +110,7 @@
             <p class="review-content">{{ review.content }}</p>
           </div>
         </div>
+        <div v-else class="empty-inline">暂无评价</div>
       </div>
     </section>
 
@@ -150,7 +151,7 @@
             </div>
           </div>
 
-          <div class="booking-section">
+          <div v-if="skill.scheduleRequired === 1" class="booking-section">
             <h4>选择日期</h4>
 
             <div class="calendar-wrapper">
@@ -187,7 +188,11 @@
             </van-button>
           </div>
 
-          <div class="booking-section" v-if="selectedDate">
+          <div v-if="skill.scheduleRequired !== 1" class="booking-section">
+            <p style="margin:0;font-size:14px;color:#5f6678;">下单后与服务者协商服务时间</p>
+          </div>
+
+          <div class="booking-section" v-if="skill.scheduleRequired === 1 && selectedDate">
             <h4>选择时间段</h4>
 
             <div v-if="scheduleLoading" class="inline-loading">
@@ -217,16 +222,7 @@
             </p>
           </div>
 
-          <div class="booking-section">
-            <h4>服务时长</h4>
-            <div class="duration-group">
-              <van-radio-group v-model="selectedDuration" direction="horizontal">
-                <van-radio :name="1">1 {{ skill.unit }}</van-radio>
-                <van-radio :name="2">2 {{ skill.unit }}</van-radio>
-                <van-radio :name="3">3 {{ skill.unit }}</van-radio>
-              </van-radio-group>
-            </div>
-          </div>
+          <!-- 服务时长固定为1单位，与后端createOrder实际扣费一致 -->
 
           <div class="booking-section">
             <h4>备注信息</h4>
@@ -255,7 +251,7 @@
             </div>
             <div class="summary-item">
               <span>时长</span>
-              <span>{{ selectedDuration }} {{ skill.unit }}</span>
+              <span>1 {{ skill.unit }}</span>
             </div>
             <div class="summary-item total">
               <span>合计</span>
@@ -276,7 +272,7 @@
             :disabled="!canSubmit"
             :loading="isSubmitting"
           >
-            {{ canSubmit ? '确认预约' : '请选择日期和时间' }}
+            {{ skill.scheduleRequired !== 1 ? '确认下单' : canSubmit ? '确认预约' : '请选择日期和时间' }}
           </van-button>
         </div>
       </div>
@@ -291,6 +287,7 @@ import { showToast, showSuccessToast, showDialog } from 'vant'
 import dayjs from 'dayjs'
 import { getSkillDetail, getSkillSchedule } from '@/api/skill'
 import { createOrder } from '@/api/order'
+import { getReviewsBySkill } from '@/api/review'
 
 interface TimeSlot {
   id: number
@@ -316,6 +313,7 @@ interface Skill {
   introduction?: string
   price: number
   unit: string
+  scheduleRequired: number
   provider: string
   location: string
   image: string
@@ -331,6 +329,7 @@ interface SkillDetailResponse {
   description?: string
   pricePerUnit?: number
   unitType?: number
+  scheduleRequired?: number
   mediaUrls?: string
   providerId?: number
   providerName?: string
@@ -371,6 +370,7 @@ const skill = ref<Skill>({
   introduction: '',
   price: 0,
   unit: '次',
+  scheduleRequired: 1,
   provider: '服务者',
   location: '',
   image: defaultImage,
@@ -396,6 +396,7 @@ const maxDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 const availableSlots = computed(() => skill.value.timeSlots)
 
 const canSubmit = computed(() => {
+  if (skill.value.scheduleRequired !== 1) return true
   return selectedDate.value !== null && selectedTimeSlot.value !== null
 })
 
@@ -416,6 +417,7 @@ const loadSkill = async () => {
       introduction: data?.description ?? '',
       price: Number(data?.pricePerUnit ?? 0),
       unit: unitMap[Number(data?.unitType)] ?? '次',
+      scheduleRequired: data?.scheduleRequired ?? 1,
       provider: data?.providerName ?? '服务者',
       location: '',
       image:
@@ -427,6 +429,7 @@ const loadSkill = async () => {
       timeSlots: [],
       reviews: []
     }
+    await loadReviews(skill.value.id)
   } catch (err) {
     console.error('[skill-detail] loadSkill error =', err)
     showToast('加载失败')
@@ -436,6 +439,7 @@ const loadSkill = async () => {
 }
 
 watch(selectedDate, async (date) => {
+  if (skill.value.scheduleRequired !== 1) return
   if (!date || !skill.value.skillId) return
 
   scheduleLoading.value = true
@@ -507,16 +511,21 @@ const onCalendarConfirm = (value: Date | Date[]) => {
 }
 
 const submitOrder = async () => {
-  if (!canSubmit.value || !selectedDate.value) {
+  if (!canSubmit.value) {
     showToast('请选择预约日期和时间')
     return
   }
 
   isSubmitting.value = true
   try {
+    const isAppointment = skill.value.scheduleRequired === 1
+    const dialogMsg = isAppointment && selectedDate.value
+      ? `确认预约 ${skill.value.title}？\n\n日期：${formatDate(selectedDate.value)}\n时间：${getSelectedTimeSlotText()}\n时长：${selectedDuration.value} ${skill.value.unit}\n合计：¥${calculateTotal()}`
+      : `确认下单 ${skill.value.title}？\n\n下单后与服务者协商服务时间\n合计：¥${calculateTotal()}`
+
     const confirmed = await showDialog({
-      title: '确认预约',
-      message: `确认预约 ${skill.value.title}？\n\n日期：${formatDate(selectedDate.value)}\n时间：${getSelectedTimeSlotText()}\n时长：${selectedDuration.value} ${skill.value.unit}\n合计：¥${calculateTotal()}`,
+      title: isAppointment ? '确认预约' : '确认下单',
+      message: dialogMsg,
       confirmButtonText: '确认支付',
       cancelButtonText: '取消'
     })
@@ -525,10 +534,12 @@ const submitOrder = async () => {
 
     if (!confirmed) return
 
-    const payload = {
-      skillId: skill.value.skillId ?? skill.value.id,
-      scheduleDate: formatDateApi(selectedDate.value),
-      timeSlot: getSelectedTimeSlotValue()
+    const payload: Record<string, unknown> = {
+      skillId: skill.value.skillId ?? skill.value.id
+    }
+    if (isAppointment && selectedDate.value) {
+      payload.scheduleDate = formatDateApi(selectedDate.value)
+      payload.timeSlot = getSelectedTimeSlotValue()
     }
 
     console.log('[skill-detail] create order payload =', payload)
@@ -546,6 +557,25 @@ const submitOrder = async () => {
     showToast(backendMessage)
   } finally {
     isSubmitting.value = false
+  }
+}
+
+const defaultAvatar = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
+
+const loadReviews = async (skillId: number) => {
+  try {
+    const data = await getReviewsBySkill(skillId, { page: 1, size: 10 })
+    const list = data?.records ?? []
+    skill.value.reviews = list.map((r, i) => ({
+      id: r.reviewId ?? i + 1,
+      name: '用户',
+      avatar: defaultAvatar,
+      rating: r.rating ?? 5,
+      date: r.createTime ? r.createTime.substring(0, 10) : '',
+      content: r.content ?? ''
+    }))
+  } catch {
+    skill.value.reviews = []
   }
 }
 

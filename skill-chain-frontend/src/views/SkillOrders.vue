@@ -129,13 +129,6 @@
             </div>
 
             <div class="order-actions" v-if="order.status < 3">
-              <van-button size="small" round plain @click="contactCustomer">
-                <van-icon name="phone-o" />
-                <span class="btn-text">联系客户</span>
-              </van-button>
-              <van-button size="small" round plain type="primary" @click="viewDetail(order)">
-                查看详情
-              </van-button>
             </div>
           </div>
 
@@ -322,7 +315,7 @@ const startService = async (order: OrderCardItem) => {
 const completeService = async (order: OrderCardItem) => {
   try {
     await completeServiceOrder(order.id)
-    showSuccessToast('服务完成！收益已到账')
+    showSuccessToast('服务已完成，等待用户确认')
     await loadOrders()
   } catch (error) {
     const err = error as { response?: { data?: { message?: string } }; message?: string }

@@ -83,17 +83,26 @@ public class OrderService {
         if (skill == null) {
             throw new BusinessException("技能不存在");
         }
-
-        com.skillchain.entity.Schedule schedule = scheduleService.findByProviderDateSlot(
-                skill.getProviderId(), scheduleDate, timeSlot);
-        if (schedule == null) {
-            throw new BusinessException("该时间段不可预约，请选择其他时间");
+        if (skill.getProviderId().equals(buyerId)) {
+            throw new BusinessException("不能购买自己发布的技能");
         }
-        Long scheduleId = schedule.getScheduleId();
 
-        boolean lockSuccess = scheduleService.preLockSchedule(scheduleId);
-        if (!lockSuccess) {
-            throw new BusinessException("该时间段已被预约，请选择其他时间");
+        // scheduleRequired 为 null 时兜底按非预约型处理（避免旧数据误触发）
+        boolean isScheduleRequired = skill.getScheduleRequired() != null && skill.getScheduleRequired() != 0;
+
+        Long scheduleId = null;
+        if (isScheduleRequired) {
+            com.skillchain.entity.Schedule schedule = scheduleService.findByProviderDateSlot(
+                    skill.getProviderId(), scheduleDate, timeSlot);
+            if (schedule == null) {
+                throw new BusinessException("该时间段不可预约，请选择其他时间");
+            }
+            scheduleId = schedule.getScheduleId();
+
+            boolean lockSuccess = scheduleService.preLockSchedule(scheduleId);
+            if (!lockSuccess) {
+                throw new BusinessException("该时间段已被预约，请选择其他时间");
+            }
         }
 
         Order order = new Order();
@@ -103,10 +112,12 @@ public class OrderService {
         order.setAmount(skill.getPricePerUnit());
         order.setCurrencyType(1);
         order.setStatus(OrderStatus.PENDING_PAYMENT.getCode());
-        order.setScheduleDate(scheduleDate);
-        order.setTimeSlot(timeSlot);
         order.setVerificationCode(generateVerificationCode());
-        order.setScheduleId(scheduleId);
+        if (isScheduleRequired) {
+            order.setScheduleDate(scheduleDate);
+            order.setTimeSlot(timeSlot);
+            order.setScheduleId(scheduleId);
+        }
 
         orderMapper.insert(order);
 

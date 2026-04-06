@@ -19,7 +19,7 @@
             <h3>{{ userInfo.nickname || '未登录' }}</h3>
             <van-icon name="arrow" class="edit-arrow" />
           </div>
-          <p>{{ userInfo.bio || '这个人很懒，什么都没写' }}</p>
+          <p>{{ userInfo.bio || '暂无简介' }}</p>
 
           <div class="user-tags" v-if="isWorker">
             <span class="user-tag worker-tag">
@@ -50,7 +50,7 @@
         <van-grid :column-num="4" :border="false">
           <van-grid-item @click="goToOrders">
             <template #icon>
-              <div class="stat-num">{{ userInfo.orders || 0 }}</div>
+              <div class="stat-num">{{ orderCount }}</div>
             </template>
             <template #text>订单</template>
           </van-grid-item>
@@ -68,7 +68,7 @@
           </van-grid-item>
           <van-grid-item @click="goToPoints">
             <template #icon>
-              <div class="stat-num">{{ userInfo.points || 0 }}</div>
+              <div class="stat-num">{{ pointBalance }}</div>
             </template>
             <template #text>积分</template>
           </van-grid-item>
@@ -83,30 +83,24 @@
           </div>
         </div>
 
-        <van-grid :column-num="4" :border="false">
+        <van-grid :column-num="3" :border="false">
           <van-grid-item @click="goToMySkills">
             <template #icon>
               <div class="stat-num light">{{ skillCount }}</div>
             </template>
             <template #text>技能</template>
           </van-grid-item>
-          <van-grid-item @click="goToSkillOrders">
-            <template #icon>
-              <div class="stat-num light">{{ pendingOrders }}</div>
-            </template>
-            <template #text>待服务</template>
-          </van-grid-item>
           <van-grid-item @click="goToEarnings">
             <template #icon>
               <div class="stat-num light">¥{{ earnings }}</div>
             </template>
-            <template #text>收益</template>
+            <template #text>可提现</template>
           </van-grid-item>
-          <van-grid-item>
+          <van-grid-item @click="goToSkillOrders">
             <template #icon>
-              <div class="stat-num light">{{ rating }}</div>
+              <div class="stat-num light">{{ completedOrders }}</div>
             </template>
-            <template #text>评分</template>
+            <template #text>已完成</template>
           </van-grid-item>
         </van-grid>
       </div>
@@ -122,7 +116,7 @@
           </div>
         </div>
         <div class="wallet-right">
-          <span class="balance">¥{{ userInfo.balance || 0 }}</span>
+          <span class="balance">¥{{ walletBalance }}</span>
           <van-icon name="arrow" />
         </div>
       </div>
@@ -359,16 +353,12 @@
             <span class="stat-label">技能</span>
           </div>
           <div class="worker-stat-item">
-            <span class="stat-value">{{ pendingOrders }}</span>
-            <span class="stat-label">待服务</span>
-          </div>
-          <div class="worker-stat-item">
             <span class="stat-value">{{ completedOrders }}</span>
             <span class="stat-label">已完成</span>
           </div>
           <div class="worker-stat-item">
-            <span class="stat-value">{{ rating }}</span>
-            <span class="stat-label">评分</span>
+            <span class="stat-value">¥{{ earnings }}</span>
+            <span class="stat-label">可提现</span>
           </div>
         </div>
 
@@ -401,7 +391,6 @@
               </div>
               <span>技能订单</span>
             </div>
-            <span class="badge" v-if="pendingOrders > 0">{{ pendingOrders }}</span>
             <van-icon name="arrow" class="arrow-icon" />
           </div>
 
@@ -517,14 +506,79 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showSuccessToast, showConfirmDialog } from 'vant'
 import { useUserStore } from '@/store/user'
+import { checkIn as checkInApi, getWallet } from '@/api/wallet'
+import { getMySkills } from '@/api/skill'
+import { getOrderList } from '@/api/order'
+import { getEarningsStats } from '@/api/withdrawal'
+import { getMyWorkerApplication } from '@/api/user'
 
 const router = useRouter()
 const userStore = useUserStore()
 const activeTab = ref(3)
+const pointBalance = ref(0)
+const walletBalance = ref(0)
+const orderCount = ref(0)
+
+onMounted(async () => {
+  // 加载钱包（积分 + 余额）
+  try {
+    const wallet = await getWallet()
+    pointBalance.value = wallet.pointBalance ?? 0
+    walletBalance.value = wallet.cnyCoinBalance ?? 0
+  } catch {
+    // 钱包加载失败不影响页面展示
+  }
+
+  // 加载订单总数（普通用户）
+  if (!isWorker.value) {
+    try {
+      const res = await getOrderList({ page: 1, size: 1 })
+      orderCount.value = res.total ?? 0
+    } catch {
+      // 加载失败保持默认 0
+    }
+  }
+
+  // 加载商家申请状态（普通用户）
+  if (!isWorker.value) {
+    try {
+      const app = await getMyWorkerApplication()
+      if (app?.applicationId) {
+        const codeMap: Record<number, 'pending' | 'approved' | 'rejected'> = {
+          0: 'pending', 1: 'approved', 2: 'rejected'
+        }
+        applicationStatus.value = codeMap[app.status ?? -1] ?? 'none'
+        if (app.createdAt) applicationTime.value = String(app.createdAt)
+        if (app.reason) rejectReason.value = String(app.reason)
+      }
+    } catch {
+      applicationStatus.value = 'none'
+    }
+  }
+
+  // 加载商家统计数据
+  if (isWorker.value) {
+    const userId = (userStore.userInfo as any)?.userId
+    if (userId) {
+      try {
+        const [skills, stats] = await Promise.all([
+          getMySkills(userId),
+          getEarningsStats()
+        ])
+        skillCount.value = (skills ?? []).length
+        const s = stats as any
+        earnings.value = Number(s?.availableAmount ?? 0)
+        completedOrders.value = Number(s?.completedOrders ?? 0)
+      } catch {
+        // 加载失败保持默认 0
+      }
+    }
+  }
+})
 
 // 根据后端返回的用户信息中的 role 字段判断是否为商家
 // role: 0-用户, 1-商家, 2-管理员
@@ -537,20 +591,21 @@ const isNormalUser = computed(() => {
   return role === 0
 })
 const applicationStatus = ref<'none' | 'pending' | 'approved' | 'rejected'>('none')
-const applicationTime = ref('2024-01-15 10:30')
+const applicationTime = ref('')
 const applicationType = ref('个人商家')
-const rejectReason = ref('资质证明材料不清晰，请重新上传身份证正面照')
+const rejectReason = ref('')
 
-const skillCount = ref(3)
-const pendingOrders = ref(2)
-const completedOrders = ref(15)
-const earnings = ref(1280.0)
-const rating = ref(4.8)
-const pendingReviews = ref(3)
+const skillCount = ref(0)
+const pendingOrders = ref(0)
+const completedOrders = ref(0)
+const earnings = ref(0)
+const unreadNotices = ref(0)
+const pendingReviews = ref(0)
 
-const unreadNotices = ref(3)
-
-const certStatus = ref<'verified' | 'pending' | 'none'>('verified')
+const certStatus = computed<'verified' | 'pending' | 'none'>(() => {
+  const s = (userStore.userInfo as any)?.realNameStatus ?? 0
+  return s === 1 ? 'verified' : 'none'
+})
 const certStatusText = computed(() => {
   const statusMap = {
     verified: '已认证',
@@ -579,11 +634,19 @@ const userInfo = computed(() => {
 })
 
 const realNameStatus = computed(() => {
-  return userInfo.value.realNameVerified ? '已认证' : '未认证'
+  return userInfo.value.realNameStatus === 1 ? '已认证' : '未认证'
 })
 
-const checkIn = () => {
-  showSuccessToast('签到成功！获得10积分')
+const checkIn = async () => {
+  try {
+    const res = await checkInApi()
+    showSuccessToast(`签到成功！获得 ${res.points} 积分`)
+    const wallet = await getWallet()
+    pointBalance.value = wallet.pointBalance ?? 0
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    showToast(e?.response?.data?.message || e?.message || '签到失败')
+  }
 }
 
 const goToEditProfile = () => {

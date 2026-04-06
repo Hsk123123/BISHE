@@ -64,7 +64,7 @@
                       </span>
                     </div>
                   </div>
-                  <van-button size="small" plain type="primary" round @click.stop="contactWorker(order)">
+                  <van-button v-if="false" size="small" plain type="primary" round @click.stop="contactWorker(order)">
                     联系
                   </van-button>
                 </div>
@@ -93,9 +93,6 @@
                 </template>
 
                 <template v-else-if="order.status === 5">
-                  <van-button size="small" round plain type="primary" @click.stop="viewReceipt(order)">
-                    查看收据
-                  </van-button>
                   <van-button size="small" round plain type="default" @click.stop="rebook(order)">
                     再次预约
                   </van-button>
@@ -228,7 +225,7 @@
                       </span>
                     </div>
                   </div>
-                  <van-button size="small" round plain type="primary" @click.stop="contactWorker(order)">
+                  <van-button v-if="false" size="small" round plain type="primary" @click.stop="contactWorker(order)">
                     联系
                   </van-button>
                 </div>
@@ -316,9 +313,6 @@
               </div>
 
               <div class="order-actions">
-                <van-button size="small" round plain type="primary" @click.stop="viewReceipt(order)">
-                  查看收据
-                </van-button>
                 <van-button size="small" round plain type="default" @click.stop="rebook(order)">
                   再次预约
                 </van-button>
@@ -452,7 +446,7 @@
                   </span>
                 </div>
               </div>
-              <van-button size="small" type="primary" round @click="contactWorker(selectedOrder)">
+              <van-button v-if="false" size="small" type="primary" round @click="contactWorker(selectedOrder)">
                 联系
               </van-button>
             </div>
@@ -702,7 +696,7 @@ const getStatusText = (status: number): string => {
     1: '待接单',
     2: '已接单',
     3: '服务中',
-    4: '待确认',
+    4: '待评价',
     5: '已完成',
     6: '退款中',
     7: '已退款',

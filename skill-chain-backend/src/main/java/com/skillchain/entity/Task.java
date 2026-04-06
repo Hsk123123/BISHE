@@ -10,6 +10,7 @@ public class Task {
     @TableId(type = IdType.AUTO)
     private Long taskId;
 
+    @TableField("`condition`")
     private String condition;
 
     private Integer targetProgress;

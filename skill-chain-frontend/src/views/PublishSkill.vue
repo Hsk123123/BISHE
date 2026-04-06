@@ -56,6 +56,16 @@
             </template>
           </van-field>
 
+          <van-field name="scheduleRequired" label="需要预约时间段">
+            <template #input>
+              <van-switch
+                :model-value="form.scheduleRequired === 1"
+                @update:model-value="(v: boolean) => (form.scheduleRequired = v ? 1 : 0)"
+                size="24px"
+              />
+            </template>
+          </van-field>
+
           <van-field name="serviceMode" label="服务方式">
             <template #input>
               <van-radio-group v-model="form.serviceMode" direction="horizontal">
@@ -92,7 +102,7 @@
           />
         </div>
 
-        <div class="form-section">
+        <div v-if="form.scheduleRequired === 1" class="form-section">
           <div class="section-title">
             <span>可预约时间段</span>
             <span class="required-mark">*</span>
@@ -203,7 +213,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showSuccessToast, showToast } from 'vant'
 import dayjs from 'dayjs'
@@ -215,6 +225,7 @@ interface FormData {
   categoryName: string
   price?: number
   unit: string
+  scheduleRequired: number
   serviceMode: number
   description: string
   notice: string
@@ -257,6 +268,7 @@ const form = reactive<FormData>({
   categoryName: '',
   price: undefined,
   unit: '小时',
+  scheduleRequired: 1,
   serviceMode: 2,
   description: '',
   notice: ''
@@ -281,6 +293,21 @@ const unitTypeMap: Record<string, number> = {
   单: 3,
   月: 4
 }
+
+// 计费单位变化时联动 scheduleRequired 默认值
+// 小时 → 强制 1；单/月 → 强制 0；次 → 默认 1（允许用户手动改）
+watch(
+  () => form.unit,
+  (unit) => {
+    if (unit === '小时') {
+      form.scheduleRequired = 1
+    } else if (unit === '单' || unit === '月') {
+      form.scheduleRequired = 0
+    } else if (unit === '次') {
+      form.scheduleRequired = 1
+    }
+  }
+)
 
 const goBack = () => {
   router.back()
@@ -361,6 +388,8 @@ const isTimeSlotOverlap = (a: string, b: string): boolean => {
 }
 
 const validateSchedules = (): boolean => {
+  if (form.scheduleRequired !== 1) return true
+
   if (schedules.value.length === 0) {
     showToast('请至少添加一个可预约时间段')
     return false
@@ -446,11 +475,13 @@ const onSubmit = async () => {
     return
   }
 
-  const scheduleItems: ScheduleItem[] = schedules.value.map((s) => ({
-    date: s.date,
-    timeSlot: s.timeSlot.trim(),
-    location: s.location.trim() || undefined
-  }))
+  const scheduleItems: ScheduleItem[] = form.scheduleRequired === 1
+    ? schedules.value.map((s) => ({
+        date: s.date,
+        timeSlot: s.timeSlot.trim(),
+        location: s.location.trim() || undefined
+      }))
+    : []
 
   const payload = {
     categoryId: Number(form.categoryId),
@@ -460,6 +491,7 @@ const onSubmit = async () => {
       form.title.trim(),
     pricePerUnit: Number(form.price),
     unitType: unitTypeMap[form.unit] ?? 1,
+    scheduleRequired: form.scheduleRequired,
     serviceMode: form.serviceMode,
     mediaUrls: '',
     schedules: scheduleItems

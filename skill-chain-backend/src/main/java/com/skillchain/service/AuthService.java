@@ -70,8 +70,9 @@ public class AuthService {
 
         Wallet wallet = new Wallet();
         wallet.setUserId(user.getUserId());
-        wallet.setCnyCoinBalance(BigDecimal.ZERO);
-        wallet.setPointBalance(BigDecimal.ZERO);
+        // 测试环境：新用户注册赠送初始余额，方便直接测试支付流程
+        wallet.setCnyCoinBalance(new BigDecimal("1000"));
+        wallet.setPointBalance(new BigDecimal("100"));
 
         walletMapper.insert(wallet);
     }

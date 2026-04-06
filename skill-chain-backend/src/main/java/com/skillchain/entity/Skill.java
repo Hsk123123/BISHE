@@ -23,6 +23,8 @@ public class Skill {
 
     private Integer unitType;
 
+    private Integer scheduleRequired;
+
     private Integer serviceMode;
 
     private String mediaUrls;

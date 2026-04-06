@@ -31,18 +31,29 @@ public class WalletService {
     }
 
     @Transactional
-    public void recharge(Long userId, BigDecimal amount) {
+    public Wallet getOrCreateWallet(Long userId) {
         Wallet wallet = getWalletByUserId(userId);
+        if (wallet == null) {
+            // 测试环境：老用户首次访问钱包时自动初始化，赋予初始余额
+            wallet = new Wallet();
+            wallet.setUserId(userId);
+            wallet.setCnyCoinBalance(new BigDecimal("1000"));
+            wallet.setPointBalance(new BigDecimal("100"));
+            walletMapper.insert(wallet);
+        }
+        return wallet;
+    }
+
+    @Transactional
+    public void recharge(Long userId, BigDecimal amount) {
+        Wallet wallet = getOrCreateWallet(userId);
         wallet.setCnyCoinBalance(wallet.getCnyCoinBalance().add(amount));
         walletMapper.updateById(wallet);
     }
 
     @Transactional
     public void deductCoin(Long userId, BigDecimal amount) {
-        Wallet wallet = getWalletByUserId(userId);
-        if (wallet == null) {
-            throw new BusinessException("钱包不存在");
-        }
+        Wallet wallet = getOrCreateWallet(userId);
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("扣款金额不合法");
         }
@@ -56,14 +67,14 @@ public class WalletService {
 
     @Transactional
     public void addPoints(Long userId, BigDecimal points) {
-        Wallet wallet = getWalletByUserId(userId);
+        Wallet wallet = getOrCreateWallet(userId);
         wallet.setPointBalance(wallet.getPointBalance().add(points));
         walletMapper.updateById(wallet);
     }
 
     @Transactional
     public void deductPoints(Long userId, BigDecimal points) {
-        Wallet wallet = getWalletByUserId(userId);
+        Wallet wallet = getOrCreateWallet(userId);
         if (wallet.getPointBalance().compareTo(points) < 0) {
             throw new RuntimeException("积分不足");
         }

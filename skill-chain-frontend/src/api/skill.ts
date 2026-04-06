@@ -108,3 +108,10 @@ export const deleteSkill = (
 ): Promise<null> => {
   return request.delete(`/skill/${id}`)
 }
+
+export const updateSkillStatus = (
+  id: number | string,
+  status: 1 | 2
+): Promise<null> => {
+  return request.post(`/skill/${id}/status`, { status })
+}

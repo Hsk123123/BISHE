@@ -32,6 +32,7 @@ public class TaskAspect {
 
     @AfterReturning("@annotation(com.skillchain.aspect.TaskTrigger) && @annotation(taskTrigger)")
     public void handleTaskTrigger(JoinPoint joinPoint, TaskTrigger taskTrigger) {
+        try {
         String action = taskTrigger.action();
 
         ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
@@ -82,6 +83,9 @@ public class TaskAspect {
         }
 
         userTaskMapper.updateById(userTask);
+        } catch (Exception e) {
+            // 任务系统异常不应阻断主业务流程
+        }
     }
 
 }

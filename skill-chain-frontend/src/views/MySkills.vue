@@ -72,10 +72,6 @@
 
             <div class="skill-stats">
               <div class="stat">
-                <span class="num">{{ skill.views }}</span>
-                <span class="label">浏览</span>
-              </div>
-              <div class="stat">
                 <span class="num">{{ skill.orders }}</span>
                 <span class="label">订单</span>
               </div>
@@ -140,8 +136,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { showToast } from 'vant'
-import { getMySkills, type Skill as ApiSkill } from '@/api/skill'
+import { showToast, showSuccessToast } from 'vant'
+import { getMySkills, updateSkillStatus, type Skill as ApiSkill } from '@/api/skill'
 import { useUserStore } from '@/store/user'
 
 interface SkillCardItem {
@@ -272,17 +268,29 @@ const getStatusText = (status: number) => {
 }
 
 const editSkill = (skill: SkillCardItem) => {
-  showToast(`编辑功能开发中：${skill.title}`)
+  router.push(`/edit-skill/${skill.id}`)
 }
 
-const toggleOffline = (skill: SkillCardItem) => {
-  skill.status = skill.status === 1 ? 2 : 1
-  showToast(skill.status === 2 ? '已下架' : '已上架')
+const toggleOffline = async (skill: SkillCardItem) => {
+  try {
+    await updateSkillStatus(skill.id, 2)
+    showSuccessToast('已下架')
+    await loadSkills()
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    showToast(e?.response?.data?.message || e?.message || '操作失败')
+  }
 }
 
-const republish = (skill: SkillCardItem) => {
-  skill.status = 0
-  showToast('已重新提交审核')
+const republish = async (skill: SkillCardItem) => {
+  try {
+    await updateSkillStatus(skill.id, 1)
+    showSuccessToast('已重新上架')
+    await loadSkills()
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } }; message?: string }
+    showToast(e?.response?.data?.message || e?.message || '操作失败')
+  }
 }
 </script>
 
