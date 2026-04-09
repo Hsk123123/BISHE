@@ -726,7 +726,7 @@ const goToEarnings = () => {
 }
 
 const goToWorkerSchedule = () => {
-  showToast('日程管理敬请期待')
+  router.push('/schedule')
 }
 
 const goToWorkerStatistics = () => {
