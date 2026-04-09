@@ -12,6 +12,7 @@
 - 数据层：MySQL 8.0，数据库 skill_chain
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
 graph TB
     subgraph 客户端
         Browser["手机浏览器"]
@@ -57,6 +58,7 @@ graph TB
 - 管理：用户/技能/订单/提现/商家审核/公告
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
 graph TB
     Root["SkillChain 技能链平台"]
 
@@ -98,6 +100,7 @@ graph TB
 - 时间段状态联动：空闲(0)→锁定(2)→已预约(1)
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
 flowchart TD
     A([买家登录]) --> B[浏览技能列表\n分类 / 搜索 / 推荐]
     B --> C[查看技能详情\n自动写入浏览记录]
