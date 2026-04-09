@@ -445,8 +445,7 @@ const loadSkill = async () => {
     // 同步收藏状态（接口返回 isFavorited，未登录时为 undefined）
     isFavorited.value = !!(data as any)?.isFavorited
     await loadReviews(skill.value.id)
-  } catch (err) {
-    console.error('[skill-detail] loadSkill error =', err)
+  } catch {
     showToast('加载失败')
   } finally {
     skillLoading.value = false
@@ -464,8 +463,6 @@ watch(selectedDate, async (date) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD')
     const slots = await getSkillSchedule(skill.value.skillId, dateStr) as RawSchedule[]
 
-    console.log('[skill-detail] schedule response =', slots)
-
     skill.value.timeSlots = (slots ?? []).map((s, i) => ({
       id: s.scheduleId ?? i + 1,
       scheduleId: s.scheduleId,
@@ -481,8 +478,7 @@ watch(selectedDate, async (date) => {
     }
 
     selectedTimeSlot.value = null
-  } catch (err) {
-    console.error('[skill-detail] load schedule error =', err)
+  } catch {
     skill.value.timeSlots = []
   } finally {
     scheduleLoading.value = false
@@ -577,15 +573,12 @@ const submitOrder = async () => {
       payload.timeSlot = getSelectedTimeSlotValue()
     }
 
-    console.log('[skill-detail] create order payload =', payload)
-
     await createOrder(payload)
 
     showSuccessToast('预约成功！订单已提交')
     showBooking.value = false
     router.push('/orders')
   } catch (err) {
-    console.error('[skill-detail] submitOrder error =', err)
     const error = err as ApiError
     const backendMessage =
       error?.response?.data?.message || error?.message || '预约失败'

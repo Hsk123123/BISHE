@@ -59,6 +59,9 @@ public class ScheduleService {
         if (!existSchedule.getProviderId().equals(providerId)) {
             throw new BusinessException(403, "无权操作");
         }
+        if (existSchedule.getStatus() != null && existSchedule.getStatus() != 0) {
+            throw new BusinessException("只能删除空闲状态的时间段，已预约或锁定的时间段不可删除");
+        }
 
         scheduleMapper.deleteById(scheduleId);
     }
