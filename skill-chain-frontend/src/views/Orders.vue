@@ -75,7 +75,7 @@
                   <van-button size="small" round plain type="default" @click.stop="cancelOrderAction(order)">
                     取消订单
                   </van-button>
-                  <van-button size="small" round type="primary" @click.stop="payOrderAction(order)">
+                  <van-button size="small" round type="primary" :loading="paying" @click.stop="payOrderAction(order)">
                     立即支付
                   </van-button>
                 </template>
@@ -238,7 +238,7 @@
                     <span :class="{ active: order.status >= 1 }">待接单</span>
                     <span :class="{ active: order.status >= 2 }">已接单</span>
                     <span :class="{ active: order.status >= 3 }">服务中</span>
-                    <span :class="{ active: order.status >= 4 }">待确认</span>
+                    <span :class="{ active: order.status >= 4 }">待评价</span>
                   </div>
                 </div>
               </div>
@@ -384,6 +384,59 @@
             <p>暂无退款/取消订单</p>
           </div>
         </van-tab>
+
+        <van-tab title="我的预约" name="appointment">
+          <div v-if="orderLoading" class="state-card">
+            <van-loading size="24px" vertical>加载中...</van-loading>
+          </div>
+
+          <div v-else-if="appointmentOrders.length > 0" class="order-list">
+            <div
+              v-for="order in appointmentOrders"
+              :key="order.id"
+              class="order-card"
+              @click="showOrderDetail(order)"
+            >
+              <div class="order-header">
+                <div class="order-id">
+                  <span class="label">预约日期</span>
+                  <span class="value">{{ order.serviceDate }} {{ order.serviceTime }}</span>
+                </div>
+                <van-tag round :type="getStatusType(order.status)">
+                  {{ getStatusText(order.status) }}
+                </van-tag>
+              </div>
+
+              <div class="order-content">
+                <div class="skill-header">
+                  <div class="skill-text">
+                    <h3 class="skill-title">{{ order.skillTitle }}</h3>
+                    <p class="skill-desc">{{ order.description }}</p>
+                  </div>
+                  <div class="skill-price-block">
+                    <span class="skill-price">¥{{ order.price.toFixed(2) }}</span>
+                  </div>
+                </div>
+
+                <div class="worker-panel">
+                  <div class="worker-left">
+                    <van-image round width="42" height="42" :src="order.workerAvatar" />
+                    <div class="worker-detail">
+                      <span class="worker-name">{{ order.workerName }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="empty-state">
+            <div class="empty-icon-wrap">
+              <van-icon name="calendar-o" size="36" />
+            </div>
+            <p>暂无预约订单</p>
+          </div>
+        </van-tab>
       </van-tabs>
     </section>
 
@@ -485,7 +538,7 @@
             <van-button block round plain type="default" @click="cancelOrderAction(selectedOrder)">
               取消订单
             </van-button>
-            <van-button block round type="primary" @click="payOrderAction(selectedOrder)">
+            <van-button block round type="primary" :loading="paying" @click="payOrderAction(selectedOrder)">
               立即支付
             </van-button>
           </template>
@@ -562,7 +615,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { showToast, showSuccessToast, showFailToast } from 'vant'
 import {
   getOrderList,
@@ -605,7 +658,8 @@ interface ApiError {
 }
 
 const router = useRouter()
-const activeTab = ref('all')
+const route = useRoute()
+const activeTab = ref(route.query.tab === 'appointment' ? 'appointment' : 'all')
 const showDetailPopup = ref(false)
 const showRatingDialog = ref(false)
 const showRefundDialog = ref(false)
@@ -624,6 +678,8 @@ const refundForm = ref({
 
 const orders = ref<Order[]>([])
 const orderLoading = ref(true)
+const paying = ref(false)
+const submittingReview = ref(false)
 
 const defaultAvatar = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
 
@@ -672,6 +728,7 @@ const pendingOrders = computed(() => orders.value.filter((o) => o.status === 0))
 const serviceOrders = computed(() => orders.value.filter((o) => [1, 2, 3, 4].includes(o.status)))
 const completedOrders = computed(() => orders.value.filter((o) => o.status === 5))
 const refundOrders = computed(() => orders.value.filter((o) => [6, 7, 8].includes(o.status)))
+const appointmentOrders = computed(() => orders.value.filter((o) => !!o.serviceDate))
 
 type OrderTagType = 'primary' | 'success' | 'warning' | 'danger' | 'default'
 
@@ -729,13 +786,18 @@ const contactWorker = (order: Order) => {
 }
 
 const payOrderAction = async (order: Order) => {
+  if (paying.value) return
+  paying.value = true
   try {
     await apiPayOrder(order.id)
     showSuccessToast('支付成功！')
+    showDetailPopup.value = false
     await loadOrders()
   } catch (err) {
     const error = err as ApiError
     showToast(error?.response?.data?.message || error?.message || '支付失败')
+  } finally {
+    paying.value = false
   }
 }
 
@@ -778,8 +840,8 @@ const rateOrder = (order: Order) => {
 }
 
 const submitRating = async () => {
-  if (!ratingOrder.value) return
-
+  if (!ratingOrder.value || submittingReview.value) return
+  submittingReview.value = true
   try {
     await createReview({
       orderId: ratingOrder.value.id,
@@ -792,11 +854,9 @@ const submitRating = async () => {
   } catch (err) {
     const error = err as ApiError
     showToast(error?.response?.data?.message || error?.message || '评价失败')
+  } finally {
+    submittingReview.value = false
   }
-}
-
-const viewReceipt = (_order: Order) => {
-  showToast('查看收据功能开发中')
 }
 
 const rebook = (order: Order) => {

@@ -5,6 +5,7 @@ import com.skillchain.common.Result;
 import com.skillchain.dto.PublishSkillRequest;
 import com.skillchain.entity.Schedule;
 import com.skillchain.entity.Skill;
+import com.skillchain.service.FavoriteService;
 import com.skillchain.service.ScheduleService;
 import com.skillchain.service.SkillService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,6 +26,9 @@ public class SkillController {
     @Autowired
     private ScheduleService scheduleService;
 
+    @Autowired
+    private FavoriteService favoriteService;
+
     @GetMapping("/list")
     public Result<Page<Skill>> getSkillList(
             @RequestParam(defaultValue = "1") Integer page,
@@ -38,8 +42,12 @@ public class SkillController {
     }
 
     @GetMapping("/{id}")
-    public Result<Skill> getSkillDetail(@PathVariable Long id) {
+    public Result<Skill> getSkillDetail(@PathVariable Long id, HttpServletRequest request) {
         Skill skill = skillService.getSkillById(id);
+        Long userId = (Long) request.getAttribute("userId");
+        if (userId != null && skill != null) {
+            skill.setIsFavorited(favoriteService.isFavorited(userId, id));
+        }
         return Result.success(skill);
     }
 

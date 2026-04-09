@@ -38,4 +38,8 @@ public class Skill {
 
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
+
+    /** 非数据库字段，由接口按需填充 */
+    @TableField(exist = false)
+    private Boolean isFavorited;
 }

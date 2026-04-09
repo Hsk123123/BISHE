@@ -5,7 +5,16 @@
       left-arrow
       fixed
       @click-left="goBack"
-    />
+    >
+      <template #right>
+        <van-icon
+          :name="isFavorited ? 'star' : 'star-o'"
+          :color="isFavorited ? '#ff976a' : '#666'"
+          size="22"
+          @click="toggleFavorite"
+        />
+      </template>
+    </van-nav-bar>
 
     <section class="detail-hero">
       <div class="hero-content">
@@ -288,6 +297,7 @@ import dayjs from 'dayjs'
 import { getSkillDetail, getSkillSchedule } from '@/api/skill'
 import { createOrder } from '@/api/order'
 import { getReviewsBySkill } from '@/api/review'
+import { addFavorite, removeFavorite, addHistory } from '@/api/favorite'
 
 interface TimeSlot {
   id: number
@@ -321,6 +331,7 @@ interface Skill {
   notice?: string
   timeSlots: TimeSlot[]
   reviews?: Review[]
+  isFavorited?: boolean
 }
 
 interface SkillDetailResponse {
@@ -382,6 +393,8 @@ const skill = ref<Skill>({
 
 const skillLoading = ref(true)
 const showBooking = ref(false)
+const isFavorited = ref(false)
+const favoriteLoading = ref(false)
 const showCalendar = ref(false)
 const selectedDate = ref<Date | null>(null)
 const selectedTimeSlot = ref<number | null>(null)
@@ -429,6 +442,8 @@ const loadSkill = async () => {
       timeSlots: [],
       reviews: []
     }
+    // 同步收藏状态（接口返回 isFavorited，未登录时为 undefined）
+    isFavorited.value = !!(data as any)?.isFavorited
     await loadReviews(skill.value.id)
   } catch (err) {
     console.error('[skill-detail] loadSkill error =', err)
@@ -476,6 +491,26 @@ watch(selectedDate, async (date) => {
 
 const goBack = () => {
   router.back()
+}
+
+const toggleFavorite = async () => {
+  if (favoriteLoading.value) return
+  const token = localStorage.getItem('token')
+  if (!token) { showToast('请先登录'); router.push('/login'); return }
+  favoriteLoading.value = true
+  try {
+    if (isFavorited.value) {
+      await removeFavorite(skill.value.id)
+      isFavorited.value = false
+      showToast('已取消收藏')
+    } else {
+      await addFavorite(skill.value.id)
+      isFavorited.value = true
+      showToast('收藏成功')
+    }
+  } catch { /* interceptor shows toast */ } finally {
+    favoriteLoading.value = false
+  }
 }
 
 const formatDate = (date: Date) => {
@@ -581,6 +616,13 @@ const loadReviews = async (skillId: number) => {
 
 onMounted(() => {
   loadSkill()
+  // 登录状态下自动记录浏览历史
+  const token = localStorage.getItem('token')
+  const idParam = route.params.id
+  const id = Number(Array.isArray(idParam) ? idParam[0] : idParam)
+  if (token && id) {
+    addHistory(id).catch(() => {/* silent */})
+  }
 })
 </script>
 

@@ -101,6 +101,16 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/WorkerApplication.vue')
   },
   {
+    path: '/favorites',
+    name: 'Favorites',
+    component: () => import('@/views/Favorites.vue')
+  },
+  {
+    path: '/history',
+    name: 'BrowseHistory',
+    component: () => import('@/views/BrowseHistory.vue')
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/Login.vue')

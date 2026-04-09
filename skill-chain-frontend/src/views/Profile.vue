@@ -658,31 +658,31 @@ const goToOrders = () => {
 }
 
 const goToBookings = () => {
-  showToast('我的预约功能开发中')
+  router.push({ path: '/orders', query: { tab: 'appointment' } })
 }
 
 const goToFavorites = () => {
-  showToast('收藏功能开发中')
+  router.push('/favorites')
 }
 
 const goToHistory = () => {
-  showToast('浏览记录功能开发中')
+  router.push('/history')
 }
 
 const goToCoupons = () => {
-  showToast('优惠券功能开发中')
+  showToast('优惠券敬请期待')
 }
 
 const goToPoints = () => {
-  showToast('积分功能开发中')
+  showToast('积分敬请期待')
 }
 
 const goToHelp = () => {
-  showToast('帮助中心功能开发中')
+  showToast('帮助中心敬请期待')
 }
 
 const goToFeedback = () => {
-  showToast('意见反馈功能开发中')
+  showToast('意见反馈敬请期待')
 }
 
 const goToWallet = () => {
@@ -726,15 +726,15 @@ const goToEarnings = () => {
 }
 
 const goToWorkerSchedule = () => {
-  showToast('日程管理功能开发中')
+  showToast('日程管理敬请期待')
 }
 
 const goToWorkerStatistics = () => {
-  showToast('数据统计功能开发中')
+  showToast('数据统计敬请期待')
 }
 
 const goToWorkerReviews = () => {
-  showToast('评价管理功能开发中')
+  showToast('评价管理敬请期待')
 }
 
 const goToWorkerCertification = () => {
@@ -750,7 +750,7 @@ const reApplyWorker = () => {
 }
 
 const checkApplicationStatus = () => {
-  showToast('查看申请详情功能开发中')
+  showToast('查看申请详情敬请期待')
 }
 
 const callService = () => {
