@@ -21,6 +21,9 @@ public class WalletService {
     @Autowired
     private WalletMapper walletMapper;
 
+    @Autowired
+    private TransactionLogService transactionLogService;
+
     // 使用内存存储签到状态（替代Redis）
     private static final ConcurrentHashMap<Long, Set<String>> checkInCache = new ConcurrentHashMap<>();
 
@@ -34,7 +37,6 @@ public class WalletService {
     public Wallet getOrCreateWallet(Long userId) {
         Wallet wallet = getWalletByUserId(userId);
         if (wallet == null) {
-            // 测试环境：老用户首次访问钱包时自动初始化，赋予初始余额
             wallet = new Wallet();
             wallet.setUserId(userId);
             wallet.setCnyCoinBalance(new BigDecimal("1000"));
@@ -46,9 +48,14 @@ public class WalletService {
 
     @Transactional
     public void recharge(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("充值金额必须大于0");
+        }
         Wallet wallet = getOrCreateWallet(userId);
         wallet.setCnyCoinBalance(wallet.getCnyCoinBalance().add(amount));
         walletMapper.updateById(wallet);
+        // 写入流水记录 type=1 充值, currency=1 CNY
+        transactionLogService.createTransactionLog(userId, 1, amount, 1, "账户充值");
     }
 
     @Transactional
@@ -76,7 +83,7 @@ public class WalletService {
     public void deductPoints(Long userId, BigDecimal points) {
         Wallet wallet = getOrCreateWallet(userId);
         if (wallet.getPointBalance().compareTo(points) < 0) {
-            throw new RuntimeException("积分不足");
+            throw new BusinessException("积分不足");
         }
         wallet.setPointBalance(wallet.getPointBalance().subtract(points));
         walletMapper.updateById(wallet);

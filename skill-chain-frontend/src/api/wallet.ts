@@ -31,3 +31,23 @@ export interface TransactionRecord {
 export const getTransactionList = (params?: { page?: number; size?: number }) => {
   return request.get('/transaction/list', { params: params || {} })
 }
+
+export interface WithdrawalRecord {
+  id?: number
+  amount?: number
+  fee?: number
+  actualAmount?: number
+  status?: number
+  bankName?: string
+  bankCard?: string
+  createTime?: string
+  processTime?: string
+}
+
+export const applyWithdrawal = (data: { amount: number; bankName: string; bankCard: string }) => {
+  return request.post<WithdrawalRecord>('/withdrawal/apply', data)
+}
+
+export const getWithdrawalList = (params?: { page?: number; size?: number }) => {
+  return request.get('/withdrawal/list', { params: params || {} })
+}

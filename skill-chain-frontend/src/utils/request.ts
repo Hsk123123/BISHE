@@ -27,24 +27,34 @@ request.interceptors.response.use(
     if (code === 200) {
       return data
     } else {
-      showToast(message || 'Request failed')
+      showToast(message || '请求失败')
       const error = new Error(message)
       ;(error as any).response = response
       return Promise.reject(error)
     }
   },
   (error) => {
+    const status = error?.response?.status
     const serverMessage =
       error?.response?.data?.message ||
       error?.response?.data?.error ||
       error?.message ||
-      'Network error'
+      '网络错误'
 
-    if (error.response?.status === 401) {
+    if (status === 401) {
       useUserStore().clearToken()
       router.push('/login')
+      showToast('登录已过期，请重新登录')
+    } else if (status === 403) {
+      showToast('无权限执行此操作')
+    } else if (status === 404) {
+      showToast(serverMessage || '资源不存在')
+    } else if (status === 400) {
+      showToast(serverMessage || '请求参数错误')
+    } else {
+      showToast(serverMessage)
     }
-    showToast(serverMessage)
+
     return Promise.reject(error)
   }
 )
