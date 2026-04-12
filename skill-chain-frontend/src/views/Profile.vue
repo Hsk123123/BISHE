@@ -730,11 +730,11 @@ const goToWorkerSchedule = () => {
 }
 
 const goToWorkerStatistics = () => {
-  showToast('数据统计敬请期待')
+  router.push('/worker-statistics')
 }
 
 const goToWorkerReviews = () => {
-  showToast('评价管理敬请期待')
+  router.push('/worker-reviews')
 }
 
 const goToWorkerCertification = () => {
