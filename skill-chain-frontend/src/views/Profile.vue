@@ -674,7 +674,7 @@ const goToCoupons = () => {
 }
 
 const goToPoints = () => {
-  showToast('积分敬请期待')
+  router.push('/wallet')
 }
 
 const goToHelp = () => {
