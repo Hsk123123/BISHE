@@ -313,7 +313,18 @@
               </div>
 
               <div class="order-actions">
-                <van-button size="small" round plain type="default" @click.stop="rebook(order)">
+                <van-button
+                  v-if="order.status === 4"
+                  size="small" round type="primary"
+                  @click.stop="rateOrder(order)"
+                >
+                  立即评价
+                </van-button>
+                <van-button
+                  v-else
+                  size="small" round plain type="default"
+                  @click.stop="rebook(order)"
+                >
                   再次预约
                 </van-button>
               </div>
@@ -725,8 +736,8 @@ onMounted(() => {
 
 const allOrders = computed(() => orders.value)
 const pendingOrders = computed(() => orders.value.filter((o) => o.status === 0))
-const serviceOrders = computed(() => orders.value.filter((o) => [1, 2, 3, 4].includes(o.status)))
-const completedOrders = computed(() => orders.value.filter((o) => o.status === 5))
+const serviceOrders = computed(() => orders.value.filter((o) => [1, 2, 3].includes(o.status)))
+const completedOrders = computed(() => orders.value.filter((o) => [4, 5].includes(o.status)))
 const refundOrders = computed(() => orders.value.filter((o) => [6, 7, 8].includes(o.status)))
 const appointmentOrders = computed(() => orders.value.filter((o) => !!o.serviceDate))
 
