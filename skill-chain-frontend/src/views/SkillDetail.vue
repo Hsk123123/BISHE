@@ -61,25 +61,8 @@
         <p class="description">{{ skill.description || '暂无详细描述' }}</p>
       </div>
 
-      <div class="section-card">
-        <div class="section-title">技能简介</div>
-        <div class="introduction-content">
-          <p>{{ skill.introduction || '暂无技能简介' }}</p>
-        </div>
-
-        <div
-          v-if="skill.serviceContent && skill.serviceContent.length > 0"
-          class="sub-section"
-        >
-          <h4>服务内容</h4>
-          <ul class="service-list">
-            <li v-for="(item, index) in skill.serviceContent" :key="index">
-              {{ item }}
-            </li>
-          </ul>
-        </div>
-
-        <div v-if="skill.notice" class="notice-box">
+      <div class="section-card" v-if="skill.notice">
+        <div v-if="skill.notice" class="notice-box" style="margin-top:0">
           <h4>注意事项</h4>
           <p>{{ skill.notice }}</p>
         </div>
@@ -427,7 +410,7 @@ const loadSkill = async () => {
       skillId: data?.skillId,
       title: data?.title ?? '',
       description: data?.description ?? '',
-      introduction: data?.description ?? '',
+      introduction: '',
       price: Number(data?.pricePerUnit ?? 0),
       unit: unitMap[Number(data?.unitType)] ?? '次',
       scheduleRequired: data?.scheduleRequired ?? 1,
@@ -571,6 +554,9 @@ const submitOrder = async () => {
     if (isAppointment && selectedDate.value) {
       payload.scheduleDate = formatDateApi(selectedDate.value)
       payload.timeSlot = getSelectedTimeSlotValue()
+    }
+    if (remark.value.trim()) {
+      payload.remark = remark.value.trim()
     }
 
     await createOrder(payload)
